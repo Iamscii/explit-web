@@ -29,6 +29,8 @@ import {
   type ModelParameterDefinition,
   type ModelParameterType,
 } from "@/lib/ai/model-catalog"
+import { formatPresetLabel, resolveImageSizeValue } from "@/lib/ai/image-size"
+import type { ImageSizeConfig } from "@/lib/ai/image-size"
 
 const MODALITY_ORDER: ModelModality[] = [
   "llm",
@@ -96,6 +98,7 @@ interface FieldDefinition {
   rows?: number
   options?: Array<{ label: string; value: string }>
   parameterType?: ModelParameterType
+  imageSizeConfig?: ImageSizeConfig
 }
 
 interface MediaAsset {
@@ -515,7 +518,7 @@ export default function AiLabPage() {
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                          <div className="grid gap-4 md:grid-cols-2">
+                          <div className="grid gap-4 md:grid-cols-3">
                             {fields.map((field) => (
                               <FieldInput
                                 key={`${section.modality}-${field.key}`}
@@ -701,6 +704,37 @@ function buildFieldsForSection(
 function mapParameterToField(parameter: ModelParameterDefinition): FieldDefinition {
   const label = formatParameterLabel(parameter.key)
   const lowerKey = parameter.key.toLowerCase()
+
+  if (parameter.type === "imagesize") {
+    const config = parameter.imageSize
+    const options = config.presets.map((preset) => ({
+      label: preset.label,
+      value: preset.id,
+    }))
+    const defaultValue =
+      typeof parameter.defaultValue === "string"
+        ? parameter.defaultValue
+        : options[0]?.value ?? ""
+
+    const description =
+      parameter.description ??
+      (config.presets.length
+        ? `Presets: ${config.presets.map((preset) => formatPresetLabel(preset, config)).join(", ")}`
+        : undefined)
+
+    return {
+      key: parameter.key,
+      label,
+      type: "select",
+      target: "parameters",
+      required: parameter.required,
+      defaultValue,
+      description,
+      options,
+      parameterType: parameter.type,
+      imageSizeConfig: config,
+    }
+  }
 
   if (parameter.enum?.length) {
     const options = parameter.enum.map((value) => ({
@@ -1359,6 +1393,23 @@ function convertFieldValue(
 
   const stringValue = typeof raw === "string" ? raw : raw !== undefined ? String(raw) : ""
   const trimmed = stringValue.trim()
+
+  if (field.parameterType === "imagesize") {
+    if (!trimmed) {
+      return field.required ? { error: "value is required" } : { value: undefined }
+    }
+
+    if (!field.imageSizeConfig) {
+      return { value: trimmed }
+    }
+
+    const resolved = resolveImageSizeValue(trimmed, field.imageSizeConfig)
+    if (!resolved) {
+      return { error: "invalid image size" }
+    }
+
+    return { value: resolved }
+  }
 
   if (!trimmed && !field.required) {
     return { value: undefined }

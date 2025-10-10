@@ -1,4 +1,5 @@
-import type { ModelParameterDefinition, ModelParameterType } from "./model-catalog"
+import type { ModelParameterDefinition } from "./model-catalog"
+import { resolveImageSizeValue } from "./image-size"
 
 export interface NormalizedParametersResult {
   recognized: Record<string, unknown>
@@ -27,9 +28,13 @@ export function normalizeParameters(
   }
 
   for (const definition of definitions) {
-    const rawValue = provided.hasOwnProperty(definition.key)
+    const enumValues = (definition as { enum?: unknown[] }).enum
+    const fallbackFromEnum =
+      Array.isArray(enumValues) && enumValues.length > 0 ? enumValues[0] : undefined
+
+    const rawValue = Object.prototype.hasOwnProperty.call(provided, definition.key)
       ? provided[definition.key]
-      : definition.defaultValue ?? (definition.enum && definition.enum.length ? definition.enum[0] : undefined)
+      : definition.defaultValue ?? fallbackFromEnum
 
     if (rawValue === undefined) {
       if (definition.required) {
@@ -38,7 +43,7 @@ export function normalizeParameters(
       continue
     }
 
-    const coerced = coerceParameterValue(definition.type, rawValue)
+    const coerced = coerceParameterValue(definition, rawValue)
 
     if (!coerced.success) {
       invalid[definition.key] = coerced.error ?? "Invalid value"
@@ -74,10 +79,10 @@ interface CoerceFailure {
 }
 
 function coerceParameterValue(
-  type: ModelParameterType,
+  definition: ModelParameterDefinition,
   rawValue: unknown,
 ): CoerceSuccess | CoerceFailure {
-  switch (type) {
+  switch (definition.type) {
     case "string":
       return { success: true, value: String(rawValue) }
     case "boolean": {
@@ -107,7 +112,7 @@ function coerceParameterValue(
       if (numeric === null) {
         return { success: false, error: "Expected a numeric value" }
       }
-      if (type === "integer" && !Number.isInteger(numeric)) {
+      if (definition.type === "integer" && !Number.isInteger(numeric)) {
         return { success: false, error: "Expected an integer value" }
       }
       return { success: true, value: numeric }
@@ -145,6 +150,16 @@ function coerceParameterValue(
         }
       }
       return { success: false, error: "Expected an object value" }
+    }
+    case "imagesize": {
+      const resolved = resolveImageSizeValue(rawValue, definition.imageSize)
+      if (!resolved) {
+        return {
+          success: false,
+          error: "Expected a preset id (e.g. 16:9) or an object with width/height",
+        }
+      }
+      return { success: true, value: resolved }
     }
     default:
       return { success: true, value: rawValue }

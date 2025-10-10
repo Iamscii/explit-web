@@ -1,3 +1,4 @@
+import type { ImageSizeConfig, ImageSizePreset } from "./image-size";
 import type { ModelTask } from "./types";
 
 export type ModelModality =
@@ -31,7 +32,7 @@ export interface ModelOptions {
   parameters?: ModelParameterDefinition[];
 }
 
-export type ModelParameterType =
+export type StandardModelParameterType =
   | "string"
   | "number"
   | "integer"
@@ -39,14 +40,32 @@ export type ModelParameterType =
   | "array"
   | "object";
 
-export interface ModelParameterDefinition {
+export type ModelParameterType = StandardModelParameterType | "imagesize";
+
+interface BaseModelParameterDefinition {
   key: string;
-  type: ModelParameterType;
+  type: StandardModelParameterType;
   required?: boolean;
   defaultValue?: unknown;
   description?: string;
   enum?: unknown[];
 }
+
+export interface ImageSizeParameterDefinition {
+  key: string;
+  type: "imagesize";
+  required?: boolean;
+  /**
+   * Defaults to a preset identifier (e.g. "1:1").
+   */
+  defaultValue?: string;
+  description?: string;
+  imageSize: ImageSizeConfig;
+}
+
+export type ModelParameterDefinition =
+  | BaseModelParameterDefinition
+  | ImageSizeParameterDefinition;
 
 export interface ModelCatalogEntry {
   /**
@@ -85,66 +104,162 @@ const OPENROUTER_TEXT_PARAMETERS: ModelParameterDefinition[] = [
     key: "top_p",
     type: "number",
     defaultValue: 1,
-    description: "Nucleus sampling cutoff (0-1). Lower values focus on more likely tokens.",
+    description:
+      "Nucleus sampling cutoff (0-1). Lower values focus on more likely tokens.",
   },
   {
     key: "frequency_penalty",
     type: "number",
     defaultValue: 0,
-    description: "Discourage repeated tokens. Negative values encourage repetition (range -2.0 to 2.0).",
+    description:
+      "Discourage repeated tokens. Negative values encourage repetition (range -2.0 to 2.0).",
   },
   {
     key: "presence_penalty",
     type: "number",
     defaultValue: 0,
-    description: "Encourage new topics. Positive values reduce repetition (range -2.0 to 2.0).",
+    description:
+      "Encourage new topics. Positive values reduce repetition (range -2.0 to 2.0).",
   },
   {
     key: "stop",
     type: "array",
-    description: "JSON array of stop sequences that will halt generation when encountered.",
+    description:
+      "JSON array of stop sequences that will halt generation when encountered.",
   },
   {
     key: "logprobs",
     type: "integer",
-    description: "Return log probabilities for the top tokens at each step when greater than 0.",
+    description:
+      "Return log probabilities for the top tokens at each step when greater than 0.",
   },
   {
     key: "top_logprobs",
     type: "integer",
-    description: "How many alternative tokens to include when logprobs are enabled.",
+    description:
+      "How many alternative tokens to include when logprobs are enabled.",
   },
   {
     key: "seed",
     type: "integer",
-    description: "Deterministic seed for reproducible generations when the model supports it.",
+    description:
+      "Deterministic seed for reproducible generations when the model supports it.",
   },
   {
     key: "user",
     type: "string",
-    description: "Unique end-user identifier for abuse monitoring on the provider side.",
+    description:
+      "Unique end-user identifier for abuse monitoring on the provider side.",
   },
   {
     key: "response_format",
     type: "object",
-    description: 'Structured output control, e.g. {"type":"json_object"} or a JSON schema payload.',
+    description:
+      'Structured output control, e.g. {"type":"json_object"} or a JSON schema payload.',
   },
   {
     key: "tools",
     type: "array",
-    description: "Array of tool definitions/functions available for tool-calling.",
+    description:
+      "Array of tool definitions/functions available for tool-calling.",
   },
   {
     key: "tool_choice",
     type: "string",
-    description: "Force a specific tool or disable tool-calling (values: auto, none, or tool name).",
+    description:
+      "Force a specific tool or disable tool-calling (values: auto, none, or tool name).",
   },
   {
     key: "parallel_tool_calls",
     type: "boolean",
-    description: "Allow the model to execute multiple tool calls in parallel when supported.",
+    description:
+      "Allow the model to execute multiple tool calls in parallel when supported.",
   },
 ];
+
+const FAL_STANDARD_IMAGE_SIZE_PRESETS: ImageSizePreset[] = [
+  {
+    id: "1:1",
+    label: "1:1",
+    ratio: [1, 1],
+    aliases: ["square", "square_hd"],
+  },
+  {
+    id: "1:2",
+    label: "1:2",
+    ratio: [1, 2],
+    aliases: ["portrait_1_2"],
+  },
+  {
+    id: "2:1",
+    label: "2:1",
+    ratio: [2, 1],
+    aliases: ["portrait_2_1"],
+  },
+  {
+    id: "2:3",
+    label: "2:3",
+    ratio: [2, 3],
+    aliases: ["portrait_2_3"],
+  },
+  {
+    id: "3:2",
+    label: "3:2",
+    ratio: [3, 2],
+    aliases: ["portrait_3_2"],
+  },
+  {
+    id: "3:4",
+    label: "3:4",
+    ratio: [3, 4],
+    aliases: ["portrait_4_3"],
+  },
+  {
+    id: "4:3",
+    label: "4:3",
+    ratio: [4, 3],
+    aliases: ["landscape_4_3"],
+  },
+  {
+    id: "9:16",
+    label: "9:16",
+    ratio: [9, 16],
+    aliases: ["portrait_16_9"],
+  },
+  {
+    id: "16:9",
+    label: "16:9",
+    ratio: [16, 9],
+    aliases: ["landscape_16_9"],
+  },
+];
+
+const FAL_FLUX_IMAGE_SIZE_CONFIG: ImageSizeConfig = {
+  presets: FAL_STANDARD_IMAGE_SIZE_PRESETS,
+  constraints: {
+    min: 512,
+    max: 1536,
+    multiple: 8,
+  },
+};
+
+const FAL_QWEN_IMAGE_SIZE_CONFIG: ImageSizeConfig = {
+  presets: FAL_STANDARD_IMAGE_SIZE_PRESETS,
+  constraints: {
+    min: 512,
+    max: 1536,
+    multiple: 8,
+  },
+};
+
+const FAL_SEEDREAM_IMAGE_SIZE_CONFIG: ImageSizeConfig = {
+  presets: FAL_STANDARD_IMAGE_SIZE_PRESETS,
+  constraints: {
+    min: 1024,
+    max: 4096,
+    multiple: 8,
+  },
+};
 
 interface ModelEntryConfig {
   label: string;
@@ -266,7 +381,8 @@ export const MODEL_CATALOG: ModelCatalog = {
           {
             key: "image_urls",
             type: "array",
-            description: "List of image URLs to include alongside the user prompt.",
+            description:
+              "List of image URLs to include alongside the user prompt.",
           },
         ],
       },
@@ -297,16 +413,11 @@ export const MODEL_CATALOG: ModelCatalog = {
           },
           {
             key: "image_size",
-            type: "string",
-            defaultValue: "square",
-            enum: [
-              "square_hd",
-              "square",
-              "portrait_4_3",
-              "portrait_16_9",
-              "landscape_4_3",
-              "landscape_16_9",
-            ],
+            type: "imagesize",
+            defaultValue: "1:1",
+            description:
+              "Aspect ratio for the generated image. Converted to width/height before dispatching to FAL.",
+            imageSize: FAL_FLUX_IMAGE_SIZE_CONFIG,
           },
           { key: "seed", type: "number" },
           {
@@ -344,16 +455,11 @@ export const MODEL_CATALOG: ModelCatalog = {
           },
           {
             key: "image_size",
-            type: "string",
-            defaultValue: "square",
-            enum: [
-              "square_hd",
-              "square",
-              "portrait_4_3",
-              "portrait_16_9",
-              "landscape_4_3",
-              "landscape_16_9",
-            ],
+            type: "imagesize",
+            defaultValue: "1:1",
+            description:
+              "Aspect ratio for the generated image. Converted to width/height before dispatching to FAL.",
+            imageSize: FAL_FLUX_IMAGE_SIZE_CONFIG,
           },
           { key: "seed", type: "number" },
           {
@@ -385,13 +491,15 @@ export const MODEL_CATALOG: ModelCatalog = {
           {
             key: "seed",
             type: "number",
-            description: "The same seed and the same prompt given to the same version of the model will output the same image every time",
+            description:
+              "The same seed and the same prompt given to the same version of the model will output the same image every time",
           },
           {
             key: "sync_mode",
             type: "boolean",
             defaultValue: false,
-            description: "If set to true, the function will wait for the image to be generated and uploaded before returning the response",
+            description:
+              "If set to true, the function will wait for the image to be generated and uploaded before returning the response",
           },
           {
             key: "num_images",
@@ -417,7 +525,8 @@ export const MODEL_CATALOG: ModelCatalog = {
             type: "string",
             defaultValue: "2",
             enum: ["1", "2", "3", "4", "5", "6"],
-            description: "The safety tolerance level for the generated image. 1 being the most strict and 5 being the most permissive",
+            description:
+              "The safety tolerance level for the generated image. 1 being the most strict and 5 being the most permissive",
           },
           {
             key: "enhance_prompt",
@@ -428,13 +537,173 @@ export const MODEL_CATALOG: ModelCatalog = {
             key: "aspect_ratio",
             type: "string",
             defaultValue: "16:9",
-            enum: ["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"],
+            enum: [
+              "21:9",
+              "16:9",
+              "4:3",
+              "3:2",
+              "1:1",
+              "2:3",
+              "3:4",
+              "9:16",
+              "9:21",
+            ],
             description: "The aspect ratio of the generated image",
           },
           {
             key: "raw",
             type: "boolean",
             description: "Generate less processed, more natural-looking images",
+          },
+        ],
+      },
+    }),
+    createModelEntry({
+      label: "Qwen Image",
+      provider: "fal",
+      modality: "text-to-image",
+      upstreamId: "fal-ai/qwen-image",
+      options: {
+        modelFieldName: "path",
+        endpointPath: "fal-ai/qwen-image",
+        parameters: [
+          {
+            key: "prompt",
+            type: "string",
+            required: true,
+            description: "The prompt to generate the image with",
+          },
+          {
+            key: "image_size",
+            type: "imagesize",
+            defaultValue: "4:3",
+            description:
+              "Aspect ratio for the generated image. Converted to width/height before dispatching to FAL.",
+            imageSize: FAL_QWEN_IMAGE_SIZE_CONFIG,
+          },
+          {
+            key: "num_inference_steps",
+            type: "integer",
+            defaultValue: 30,
+            description: "The number of inference steps to perform",
+          },
+          {
+            key: "seed",
+            type: "integer",
+            description:
+              "The same seed and the same prompt given to the same version of the model will output the same image every time",
+          },
+          {
+            key: "guidance_scale",
+            type: "number",
+            defaultValue: 2.5,
+            description:
+              "The CFG (Classifier Free Guidance) scale is a measure of how close you want the model to stick to your prompt",
+          },
+          {
+            key: "sync_mode",
+            type: "boolean",
+            defaultValue: false,
+            description:
+              "If set to true, the function will wait for the image to be generated and uploaded before returning the response",
+          },
+          {
+            key: "num_images",
+            type: "integer",
+            defaultValue: 1,
+            description: "The number of images to generate",
+          },
+          {
+            key: "enable_safety_checker",
+            type: "boolean",
+            defaultValue: true,
+            description: "If set to true, the safety checker will be enabled",
+          },
+          {
+            key: "output_format",
+            type: "string",
+            defaultValue: "png",
+            enum: ["jpeg", "png"],
+            description: "The format of the generated image",
+          },
+          {
+            key: "negative_prompt",
+            type: "string",
+            defaultValue: " ",
+            description: "The negative prompt for the generation",
+          },
+          {
+            key: "acceleration",
+            type: "string",
+            defaultValue: "none",
+            enum: ["none", "regular", "high"],
+            description:
+              "Acceleration level for image generation. Higher acceleration increases speed. 'regular' balances speed and quality. 'high' is recommended for images without text",
+          },
+          {
+            key: "loras",
+            type: "array",
+            description:
+              "The LoRAs to use for the image generation. You can use up to 3 LoRAs and they will be merged together to generate the final image",
+          },
+        ],
+      },
+    }),
+    createModelEntry({
+      label: "FAL Bytedance Seedream v4",
+      provider: "fal",
+      modality: "text-to-image",
+      upstreamId: "fal-ai/bytedance/seedream/v4/text-to-image",
+      options: {
+        modelFieldName: "path",
+        endpointPath: "fal-ai/bytedance/seedream/v4/text-to-image",
+        parameters: [
+          {
+            key: "prompt",
+            type: "string",
+            required: true,
+            description: "The text prompt used to generate the image",
+          },
+          {
+            key: "image_size",
+            type: "imagesize",
+            defaultValue: "1:1",
+            description:
+              "Aspect ratio for the generated image. Width and height are auto-derived (1024-4096 range enforced).",
+            imageSize: FAL_SEEDREAM_IMAGE_SIZE_CONFIG,
+          },
+          {
+            key: "num_images",
+            type: "integer",
+            defaultValue: 1,
+            description:
+              "Number of separate model generations to be run with the prompt",
+          },
+          {
+            key: "max_images",
+            type: "integer",
+            defaultValue: 1,
+            description:
+              "If set to a number greater than one, enables multi-image generation. The model will potentially return up to max_images images every generation",
+          },
+          {
+            key: "seed",
+            type: "integer",
+            description:
+              "Random seed to control the stochasticity of image generation",
+          },
+          {
+            key: "sync_mode",
+            type: "boolean",
+            defaultValue: false,
+            description:
+              "If True, the media will be returned as a data URI and the output data won't be available in the request history",
+          },
+          {
+            key: "enable_safety_checker",
+            type: "boolean",
+            defaultValue: true,
+            description: "If set to true, the safety checker will be enabled",
           },
         ],
       },
