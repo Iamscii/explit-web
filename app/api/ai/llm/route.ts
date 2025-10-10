@@ -2,9 +2,21 @@ import { NextResponse } from "next/server"
 
 import { normalizeParameters } from "@/lib/ai/parameter-normalizer"
 import { getAdapter } from "@/lib/ai/registry"
-import type { ChatMessage, ModelAdapter, TextGenerationInput } from "@/lib/ai/types"
+import type {
+  ChatMessage,
+  ChatMessageContent,
+  ChatMessageContentPart,
+  ModelAdapter,
+  TextGenerationInput,
+} from "@/lib/ai/types"
+import {
+  findModelById,
+  listModelsByModality,
+  type ModelCatalogEntry,
+  type ModelModality,
+} from "@/lib/ai/model-catalog"
 
-import { ApiError, handleError, readJsonBody, resolveModelForModality } from "../_utils"
+import { ApiError, handleError, readJsonBody } from "../_utils"
 
 interface LlmRequestBody {
   modelId?: string
@@ -19,7 +31,7 @@ export async function POST(request: Request) {
   try {
     const body = await readJsonBody<LlmRequestBody>(request)
 
-    const model = resolveModelForModality("llm", {
+    const model = resolveTextModel({
       modelId: typeof body.modelId === "string" ? body.modelId : undefined,
       provider: typeof body.provider === "string" ? body.provider : undefined,
     })
@@ -33,7 +45,8 @@ export async function POST(request: Request) {
     )
     const prompt = pickString(body.prompt ?? normalized.recognized.prompt)
 
-    const messages = buildMessages(body.messages, systemPrompt, prompt)
+    const imageUrls = extractImageUrls(normalized.recognized.image_urls)
+    const messages = buildMessages(body.messages, systemPrompt, prompt, imageUrls)
 
     const remainingMissing = normalized.missingRequired.filter((key) => {
       if (key === "prompt" && prompt) {
@@ -66,6 +79,7 @@ export async function POST(request: Request) {
       "max_tokens",
       "maxTokens",
       "max_output_tokens",
+      "image_urls",
     ])
 
     const temperature = pickNumber(normalized.recognized, ["temperature", "temperature_c"])
@@ -100,7 +114,22 @@ export async function POST(request: Request) {
   }
 }
 
-function buildMessages(input: unknown, systemPrompt?: string, fallbackPrompt?: string): ChatMessage[] {
+function extractImageUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((url) => url.length > 0)
+}
+
+function buildMessages(
+  input: unknown,
+  systemPrompt?: string,
+  fallbackPrompt?: string,
+  imageUrls: string[] = [],
+): ChatMessage[] {
   const parsed = parseMessages(input)
   const messages: ChatMessage[] = []
 
@@ -110,9 +139,27 @@ function buildMessages(input: unknown, systemPrompt?: string, fallbackPrompt?: s
 
   if (parsed.length) {
     messages.push(...parsed)
-  } else if (fallbackPrompt) {
-    messages.push({ role: "user", content: fallbackPrompt })
+    return messages
   }
+
+  const parts: ChatMessageContentPart[] = []
+
+  if (fallbackPrompt) {
+    parts.push({ type: "text", text: fallbackPrompt })
+  }
+
+  for (const url of imageUrls) {
+    parts.push({ type: "image_url", image_url: { url } })
+  }
+
+  if (!parts.length) {
+    return messages
+  }
+
+  const content: ChatMessageContent =
+    parts.length === 1 && parts[0]?.type === "text" ? parts[0].text : parts
+
+  messages.push({ role: "user", content })
 
   return messages
 }
@@ -132,19 +179,76 @@ function parseMessages(input: unknown): ChatMessage[] {
     const role = (item as Record<string, unknown>).role
     const content = (item as Record<string, unknown>).content
 
-    if (!isValidRole(role) || typeof content !== "string") {
+    if (!isValidRole(role)) {
       continue
     }
 
-    const trimmed = content.trim()
-    if (!trimmed) {
+    const normalizedContent = normalizeMessageContent(content)
+    if (!normalizedContent) {
       continue
     }
 
-    messages.push({ role, content: trimmed })
+    messages.push({ role, content: normalizedContent })
   }
 
   return messages
+}
+
+function normalizeMessageContent(content: unknown): ChatMessageContent | null {
+  if (typeof content === "string") {
+    const trimmed = content.trim()
+    return trimmed.length ? trimmed : null
+  }
+
+  if (Array.isArray(content)) {
+    const parts: ChatMessageContentPart[] = []
+
+    for (const item of content) {
+      const normalized = normalizeMessageContentPart(item)
+      if (normalized) {
+        parts.push(normalized)
+      }
+    }
+
+    if (!parts.length) {
+      return null
+    }
+
+    return parts
+  }
+
+  return null
+}
+
+function normalizeMessageContentPart(part: unknown): ChatMessageContentPart | null {
+  if (!part || typeof part !== "object") {
+    return null
+  }
+
+  const record = part as Record<string, unknown>
+  const type = record.type
+
+  if (type === "text" || type === "input_text") {
+    const textValue = typeof record.text === "string" ? record.text.trim() : ""
+    return textValue ? { type: "text", text: textValue } : null
+  }
+
+  if (type === "image_url") {
+    const imageRecord = record.image_url
+    if (!imageRecord || typeof imageRecord !== "object") {
+      return null
+    }
+
+    const url = (imageRecord as Record<string, unknown>).url
+    if (typeof url !== "string") {
+      return null
+    }
+
+    const trimmed = url.trim()
+    return trimmed ? { type: "image_url", image_url: { url: trimmed } } : null
+  }
+
+  return null
 }
 
 function pickString(value: unknown): string | undefined {
@@ -196,4 +300,39 @@ function formatInvalidErrors(errors: Record<string, string>) {
 
 function isValidRole(role: unknown): role is ChatMessage["role"] {
   return role === "system" || role === "user" || role === "assistant"
+}
+
+function resolveTextModel(options: { modelId?: string; provider?: string }): ModelCatalogEntry {
+  const supportedModalities: ModelModality[] = ["llm", "vlm"]
+
+  if (options.modelId) {
+    const match = findModelById(options.modelId)
+
+    if (!match || !supportedModalities.includes(match.modality)) {
+      throw new ApiError(`Unknown model identifier "${options.modelId}" for modality "llm"`, 404)
+    }
+
+    return match
+  }
+
+  const allModels = supportedModalities.flatMap((modality) => listModelsByModality(modality))
+
+  if (!allModels.length) {
+    throw new ApiError('No models registered for modalities "llm" or "vlm"', 404)
+  }
+
+  if (options.provider) {
+    const providerMatch = allModels.find((model) => model.provider === options.provider)
+
+    if (!providerMatch) {
+      throw new ApiError(
+        `No models for provider "${options.provider}" registered under modalities "llm" or "vlm"`,
+        404,
+      )
+    }
+
+    return providerMatch
+  }
+
+  return allModels[0]
 }

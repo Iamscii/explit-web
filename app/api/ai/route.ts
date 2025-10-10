@@ -5,6 +5,8 @@ import { NextResponse } from "next/server"
 import { getAdapter, listAdapters } from "@/lib/ai/registry"
 import type {
   ChatMessage,
+  ChatMessageContent,
+  ChatMessageContentPart,
   ImageGenerationInput,
   ModelAdapter,
   ModelResult,
@@ -246,11 +248,12 @@ function parseChatMessage(message: unknown, index: number): ChatMessage {
     throw new ApiError(`Message at index ${index} has an invalid role`, 400)
   }
 
-  if (typeof content !== "string" || !content.trim()) {
+  const normalizedContent = normalizeChatMessageContent(content)
+  if (!normalizedContent) {
     throw new ApiError(`Message at index ${index} must include non-empty content`, 400)
   }
 
-  return { role, content }
+  return { role, content: normalizedContent }
 }
 
 function parseOptionalNumber(value: unknown, fieldName: string): number | undefined {
@@ -270,6 +273,59 @@ function parseOptionalNumber(value: unknown, fieldName: string): number | undefi
   }
 
   throw new ApiError(`${fieldName} must be a finite number`, 400)
+}
+
+function normalizeChatMessageContent(content: unknown): ChatMessageContent | null {
+  if (typeof content === "string") {
+    const trimmed = content.trim()
+    return trimmed.length ? trimmed : null
+  }
+
+  if (Array.isArray(content)) {
+    const parts: ChatMessageContentPart[] = []
+
+    for (const part of content) {
+      const normalized = normalizeChatMessagePart(part)
+      if (normalized) {
+        parts.push(normalized)
+      }
+    }
+
+    return parts.length ? parts : null
+  }
+
+  return null
+}
+
+function normalizeChatMessagePart(part: unknown): ChatMessageContentPart | null {
+  if (!part || typeof part !== "object") {
+    return null
+  }
+
+  const record = part as Record<string, unknown>
+  const type = record.type
+
+  if (type === "text" || type === "input_text") {
+    const text = typeof record.text === "string" ? record.text.trim() : ""
+    return text ? { type: "text", text } : null
+  }
+
+  if (type === "image_url") {
+    const imageRecord = record.image_url
+    if (!imageRecord || typeof imageRecord !== "object") {
+      return null
+    }
+
+    const url = (imageRecord as Record<string, unknown>).url
+    if (typeof url !== "string") {
+      return null
+    }
+
+    const trimmed = url.trim()
+    return trimmed ? { type: "image_url", image_url: { url: trimmed } } : null
+  }
+
+  return null
 }
 
 async function persistImages(result: ModelResult<"image">, modelId: string, config: Exclude<PersistConfig, undefined>) {

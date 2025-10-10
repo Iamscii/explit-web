@@ -34,13 +34,34 @@ function createOpenRouterAdapter(entry: ModelCatalogEntry): ModelAdapter<"text">
 
       const payload = stripUndefined(payloadBase)
 
+      const referer =
+        process.env.OPENROUTER_SITE_URL ??
+        process.env.NEXT_PUBLIC_BASE_URL ??
+        process.env.NEXT_PUBLIC_API_URL ??
+        ""
+
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      }
+
+      if (referer) {
+        headers["HTTP-Referer"] = referer
+      }
+
+      const siteTitle =
+        process.env.OPENROUTER_SITE_TITLE ??
+        process.env.NEXT_PUBLIC_SITE_NAME ??
+        process.env.NEXT_PUBLIC_APP_NAME ??
+        ""
+
+      if (siteTitle) {
+        headers["X-Title"] = siteTitle
+      }
+
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": process.env.NEXT_PUBLIC_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "",
-        },
+        headers,
         body: JSON.stringify(payload),
       })
 

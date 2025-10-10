@@ -1,8 +1,28 @@
 export type ModelTask = "text" | "image" | "video"
 
+export type ChatMessageContent =
+  | string
+  | ChatMessageContentPart[];
+
+export type ChatMessageContentPart =
+  | ChatMessageTextContent
+  | ChatMessageImageContent;
+
+export interface ChatMessageTextContent {
+  type: "text";
+  text: string;
+}
+
+export interface ChatMessageImageContent {
+  type: "image_url";
+  image_url: {
+    url: string;
+  };
+}
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant"
-  content: string
+  content: ChatMessageContent
 }
 
 export interface TextGenerationInput {

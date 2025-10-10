@@ -80,6 +80,72 @@ export type ModelCatalog = {
   [K in ModelModality]: ModelCatalogEntry[];
 };
 
+const OPENROUTER_TEXT_PARAMETERS: ModelParameterDefinition[] = [
+  {
+    key: "top_p",
+    type: "number",
+    defaultValue: 1,
+    description: "Nucleus sampling cutoff (0-1). Lower values focus on more likely tokens.",
+  },
+  {
+    key: "frequency_penalty",
+    type: "number",
+    defaultValue: 0,
+    description: "Discourage repeated tokens. Negative values encourage repetition (range -2.0 to 2.0).",
+  },
+  {
+    key: "presence_penalty",
+    type: "number",
+    defaultValue: 0,
+    description: "Encourage new topics. Positive values reduce repetition (range -2.0 to 2.0).",
+  },
+  {
+    key: "stop",
+    type: "array",
+    description: "JSON array of stop sequences that will halt generation when encountered.",
+  },
+  {
+    key: "logprobs",
+    type: "integer",
+    description: "Return log probabilities for the top tokens at each step when greater than 0.",
+  },
+  {
+    key: "top_logprobs",
+    type: "integer",
+    description: "How many alternative tokens to include when logprobs are enabled.",
+  },
+  {
+    key: "seed",
+    type: "integer",
+    description: "Deterministic seed for reproducible generations when the model supports it.",
+  },
+  {
+    key: "user",
+    type: "string",
+    description: "Unique end-user identifier for abuse monitoring on the provider side.",
+  },
+  {
+    key: "response_format",
+    type: "object",
+    description: 'Structured output control, e.g. {"type":"json_object"} or a JSON schema payload.',
+  },
+  {
+    key: "tools",
+    type: "array",
+    description: "Array of tool definitions/functions available for tool-calling.",
+  },
+  {
+    key: "tool_choice",
+    type: "string",
+    description: "Force a specific tool or disable tool-calling (values: auto, none, or tool name).",
+  },
+  {
+    key: "parallel_tool_calls",
+    type: "boolean",
+    description: "Allow the model to execute multiple tool calls in parallel when supported.",
+  },
+];
+
 interface ModelEntryConfig {
   label: string;
   provider: string;
@@ -119,6 +185,7 @@ export const MODEL_CATALOG: ModelCatalog = {
       options: {
         modelFieldName: "model",
         structuredOutputs: false,
+        parameters: [...OPENROUTER_TEXT_PARAMETERS],
       },
     }),
     createModelEntry({
@@ -129,6 +196,7 @@ export const MODEL_CATALOG: ModelCatalog = {
       options: {
         modelFieldName: "model",
         structuredOutputs: true,
+        parameters: [...OPENROUTER_TEXT_PARAMETERS],
       },
     }),
     createModelEntry({
@@ -139,6 +207,7 @@ export const MODEL_CATALOG: ModelCatalog = {
       options: {
         modelFieldName: "model",
         structuredOutputs: false,
+        parameters: [...OPENROUTER_TEXT_PARAMETERS],
       },
     }),
     createModelEntry({
@@ -149,6 +218,7 @@ export const MODEL_CATALOG: ModelCatalog = {
       options: {
         modelFieldName: "model",
         structuredOutputs: false,
+        parameters: [...OPENROUTER_TEXT_PARAMETERS],
       },
     }),
     createModelEntry({
@@ -159,6 +229,15 @@ export const MODEL_CATALOG: ModelCatalog = {
       options: {
         modelFieldName: "model",
         structuredOutputs: true,
+        parameters: [
+          ...OPENROUTER_TEXT_PARAMETERS,
+          {
+            key: "reasoning",
+            type: "object",
+            description:
+              'Reasoning configuration for advanced models, e.g. {"effort":"medium"} to trade speed vs. depth.',
+          },
+        ],
       },
     }),
     createModelEntry({
@@ -169,6 +248,7 @@ export const MODEL_CATALOG: ModelCatalog = {
       options: {
         modelFieldName: "model",
         structuredOutputs: false,
+        parameters: [...OPENROUTER_TEXT_PARAMETERS],
       },
     }),
   ],
@@ -181,6 +261,14 @@ export const MODEL_CATALOG: ModelCatalog = {
       options: {
         modelFieldName: "model",
         structuredOutputs: true,
+        parameters: [
+          ...OPENROUTER_TEXT_PARAMETERS,
+          {
+            key: "image_urls",
+            type: "array",
+            description: "List of image URLs to include alongside the user prompt.",
+          },
+        ],
       },
     }),
   ],

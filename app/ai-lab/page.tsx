@@ -22,7 +22,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import {
   getModelParameters,
-  getModelTask,
   groupModelsByProviderForModality,
   listModelsByModality,
   type ModelCatalogEntry,
@@ -75,7 +74,15 @@ interface SectionRuntimeState {
   response?: unknown
 }
 
-type FieldType = "text" | "textarea" | "number" | "select" | "boolean" | "json" | "urls"
+type FieldType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "select"
+  | "boolean"
+  | "json"
+  | "urls"
+  | "single-url"
 type TranslateFn = ReturnType<typeof useTranslations>
 
 interface FieldDefinition {
@@ -485,7 +492,6 @@ export default function AiLabPage() {
                                   <SelectItem key={model.id} value={model.id}>
                                     <div className="flex flex-col gap-0.5">
                                       <span>{model.label}</span>
-                                      <span className="text-muted-foreground text-xs">{model.id}</span>
                                     </div>
                                   </SelectItem>
                                 ))}
@@ -509,27 +515,6 @@ export default function AiLabPage() {
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                          <div className="grid gap-3 text-sm sm:grid-cols-2">
-                            <MetadataRow label={t("metadata.id")} value={activeModel.id} />
-                            <MetadataRow label={t("metadata.provider")} value={activeModel.provider} />
-                            <MetadataRow
-                              label={t("metadata.modality")}
-                              value={t(`modalityLabels.${activeModel.modality}`)}
-                            />
-                            <MetadataRow
-                              label={t("metadata.task")}
-                              value={t(`taskLabels.${getModelTask(activeModel)}`)}
-                            />
-                            <MetadataRow
-                              label={t("metadata.structuredOutputs")}
-                              value={activeModel.options.structuredOutputs ? t("boolean.yes") : t("boolean.no")}
-                            />
-                            <MetadataRow
-                              label={t("metadata.endpointPath")}
-                              value={activeModel.options.endpointPath ?? "—"}
-                            />
-                          </div>
-
                           <div className="grid gap-4 md:grid-cols-2">
                             {fields.map((field) => (
                               <FieldInput
@@ -715,6 +700,7 @@ function buildFieldsForSection(
 
 function mapParameterToField(parameter: ModelParameterDefinition): FieldDefinition {
   const label = formatParameterLabel(parameter.key)
+  const lowerKey = parameter.key.toLowerCase()
 
   if (parameter.enum?.length) {
     const options = parameter.enum.map((value) => ({
@@ -769,7 +755,6 @@ function mapParameterToField(parameter: ModelParameterDefinition): FieldDefiniti
   }
 
   if (parameter.type === "array") {
-    const lowerKey = parameter.key.toLowerCase()
     const expectsUrls = lowerKey.includes("url") || lowerKey.includes("uri") || lowerKey.includes("image")
 
     if (expectsUrls) {
@@ -828,7 +813,29 @@ function mapParameterToField(parameter: ModelParameterDefinition): FieldDefiniti
     }
   }
 
-  const isPromptField = parameter.key.toLowerCase().includes("prompt")
+  if (parameter.type === "string") {
+    const expectsSingleUrl = lowerKey.includes("url") && lowerKey.includes("image")
+
+    if (expectsSingleUrl) {
+      return {
+        key: parameter.key,
+        label,
+        type: "single-url",
+        target: "parameters",
+        required: parameter.required,
+        defaultValue:
+          typeof parameter.defaultValue === "string"
+            ? parameter.defaultValue
+            : Array.isArray(parameter.defaultValue)
+              ? parameter.defaultValue.filter((item) => typeof item === "string").map(String).join("\n")
+              : undefined,
+        description: parameter.description,
+        parameterType: parameter.type,
+      }
+    }
+  }
+
+  const isPromptField = lowerKey.includes("prompt")
 
   return {
     key: parameter.key,
@@ -871,6 +878,16 @@ function buildInitialValues(fields: FieldDefinition[]): Record<string, string | 
         return [field.key, ""]
       }
 
+      if (field.type === "single-url") {
+        if (typeof field.defaultValue === "string") {
+          return [field.key, field.defaultValue]
+        }
+        if (Array.isArray(field.defaultValue)) {
+          return [field.key, field.defaultValue[0] ? String(field.defaultValue[0]) : ""]
+        }
+        return [field.key, ""]
+      }
+
       if (field.defaultValue === undefined || field.defaultValue === null) {
         return [field.key, ""]
       }
@@ -888,22 +905,30 @@ function syncValues(
 
   fields.forEach((field) => {
     const existing = previous?.[field.key]
-    if (existing !== undefined) {
-      if (field.type === "boolean") {
-        next[field.key] = Boolean(existing)
-      } else if (field.type === "urls") {
-        if (typeof existing === "string") {
-          next[field.key] = existing
-        } else if (Array.isArray(existing)) {
-          next[field.key] = existing.join("\n")
+      if (existing !== undefined) {
+        if (field.type === "boolean") {
+          next[field.key] = Boolean(existing)
+        } else if (field.type === "urls") {
+          if (typeof existing === "string") {
+            next[field.key] = existing
+          } else if (Array.isArray(existing)) {
+            next[field.key] = existing.join("\n")
+          } else {
+            next[field.key] = ""
+          }
+        } else if (field.type === "single-url") {
+          if (typeof existing === "string") {
+            next[field.key] = existing
+          } else if (Array.isArray(existing)) {
+            next[field.key] = existing[0] ? String(existing[0]) : ""
+          } else {
+            next[field.key] = ""
+          }
         } else {
-          next[field.key] = ""
+          next[field.key] = existing as string | boolean
         }
-      } else {
-        next[field.key] = existing as string | boolean
+        return
       }
-      return
-    }
 
     next[field.key] = buildInitialValues([field])[field.key]
   })
@@ -944,7 +969,7 @@ function FieldInput({
     )
   }
 
-  if (field.type === "urls") {
+  if (field.type === "urls" || field.type === "single-url") {
     const textValue = typeof value === "string" ? value : ""
     return (
       <UrlsFieldInput
@@ -954,6 +979,7 @@ function FieldInput({
         description={description}
         library={library}
         t={t}
+        mode={field.type === "single-url" ? "single" : "multiple"}
       />
     )
   }
@@ -1030,18 +1056,23 @@ interface UrlsFieldInputProps {
   description: ReactNode
   library: MediaLibraryState
   t: ReturnType<typeof useTranslations>
+  mode: "single" | "multiple"
 }
 
-function UrlsFieldInput({ field, value, onChange, description, library, t }: UrlsFieldInputProps) {
+function UrlsFieldInput({ field, value, onChange, description, library, t, mode }: UrlsFieldInputProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
-  const parsedUrls = parseUrlInput(value)
+  const parsedUrls = mode === "single"
+    ? value.trim()
+        ? [value.trim()]
+        : []
+    : parseUrlInput(value)
 
-  const handleManualChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+  const setManualValue = (next: string) => {
     setUploadError(null)
-    onChange(event.target.value)
+    onChange(mode === "single" ? next.trim() : next)
   }
 
   const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1094,8 +1125,13 @@ function UrlsFieldInput({ field, value, onChange, description, library, t }: Url
         uploadedUrls.push(publicUrl)
       }
 
-      const combined = [...parsedUrls, ...uploadedUrls]
-      onChange(combined.join("\n"))
+      if (mode === "single") {
+        const nextUrl = uploadedUrls[0] ?? parsedUrls[0] ?? ""
+        setManualValue(nextUrl)
+      } else {
+        const combined = [...parsedUrls, ...uploadedUrls]
+        setManualValue(combined.join("\n"))
+      }
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : String(error))
     } finally {
@@ -1111,11 +1147,16 @@ function UrlsFieldInput({ field, value, onChange, description, library, t }: Url
       return
     }
 
+    if (mode === "single") {
+      setManualValue(url)
+      return
+    }
+
     const current = parseUrlInput(value)
     if (current.includes(url)) {
       return
     }
-    onChange([...current, url].join("\n"))
+    setManualValue([...current, url].join("\n"))
   }
 
   return (
@@ -1131,21 +1172,32 @@ function UrlsFieldInput({ field, value, onChange, description, library, t }: Url
           <TabsTrigger value="library">{t("uploadTabs.library")}</TabsTrigger>
         </TabsList>
         <TabsContent value="manual" className="space-y-2">
-          <Textarea
-            id={field.key}
-            value={value}
-            onChange={handleManualChange}
-            rows={field.rows ?? 5}
-            placeholder={t("upload.urlPlaceholder")}
-            className="font-mono text-sm"
-          />
-          <p className="text-muted-foreground text-xs">{t("upload.manualHint")}</p>
+          {mode === "single" ? (
+            <Input
+              id={field.key}
+              value={value}
+              onChange={(event) => setManualValue(event.target.value)}
+              placeholder={t("upload.urlPlaceholderSingle")}
+            />
+          ) : (
+            <Textarea
+              id={field.key}
+              value={value}
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setManualValue(event.target.value)}
+              rows={field.rows ?? 5}
+              placeholder={t("upload.urlPlaceholder")}
+              className="font-mono text-sm"
+            />
+          )}
+          <p className="text-muted-foreground text-xs">
+            {mode === "single" ? t("upload.manualHintSingle") : t("upload.manualHint")}
+          </p>
         </TabsContent>
         <TabsContent value="upload" className="space-y-2">
           <input
             ref={fileInputRef}
             type="file"
-            multiple
+            multiple={mode !== "single"}
             className="hidden"
             onChange={handleFilesSelected}
           />
@@ -1341,6 +1393,36 @@ function convertFieldValue(
     return { value: urls }
   }
 
+  if (field.type === "single-url") {
+    if (!trimmed) {
+      return field.required ? { error: "value is required" } : { value: undefined }
+    }
+
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) {
+          const first = parsed.find((item) => typeof item === "string" && item.trim())
+          if (!first) {
+            return field.required ? { error: "value is required" } : { value: undefined }
+          }
+          return { value: String(first).trim() }
+        }
+        return { error: "must be an array" }
+      } catch {
+        return { error: "must be valid JSON" }
+      }
+    }
+
+    const urls = parseUrlInput(trimmed)
+    const first = urls[0]
+    if (!first) {
+      return field.required ? { error: "value is required" } : { value: undefined }
+    }
+
+    return { value: first }
+  }
+
   if (field.type === "number") {
     if (!trimmed) {
       return field.required ? { error: "value is required" } : { value: undefined }
@@ -1414,15 +1496,6 @@ function extractAssets(response: unknown): Array<{ url: string; mimeType?: strin
   }
 
   return normalized
-}
-
-function MetadataRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-md bg-muted/50 p-3">
-      <span className="text-muted-foreground text-xs uppercase tracking-wide">{label}</span>
-      <span className="font-mono text-sm">{value}</span>
-    </div>
-  )
 }
 
 function formatParameterLabel(key: string): string {

@@ -75,11 +75,15 @@
       "uploading": "Uploading…",
       "error": "Upload failed: {message}",
       "urlPlaceholder": "https://example.com/image.jpg\nhttps://example.com/another.png",
+      "urlPlaceholderSingle": "https://example.com/image.jpg",
       "manualHint": "Enter one URL per line or use the uploader tab.",
+      "manualHintSingle": "Paste a direct URL or use the tabs below to upload/select an asset.",
       "currentTitle": "Current URLs",
       "libraryHint": "Select assets from your existing library.",
       "add": "Add URL",
       "loading": "Loading library…",
+      "errorLoading": "Failed to load library: {message}",
+      "empty": "The media library is empty.",
       "added": "Added"
     },
     "response": {
