@@ -2,6 +2,8 @@
 
 This guide gives downstream AI agents the context they need to work effectively on the project without breaking critical guarantees.
 
+> **Reminder**: Any significant logic or architectural change must include a fresh pass over `agents.md`—update or append sections so future maintainers stay aligned.
+
 ## 1. Architecture Snapshot
 - **Framework**: Next.js (App Router) with server components where practical.
 - **Styling**: Tailwind CSS + shadcn/ui. Reuse existing component primitives under `components/ui`.
@@ -12,6 +14,7 @@ This guide gives downstream AI agents the context they need to work effectively 
 - **Internationalization**: next-intl. Messages live under `messages/{locale}.json`. Root layout reads `NEXT_LOCALE` cookie to choose the bundle.
 - **Media uploads**: `/app/api/s3-upload/route.ts` generates pre-signed S3 URLs. All AWS credentials must remain on the server.
 - **Serialization utilities**: `lib/utils/serialization.ts` exposes a recursive `dateToStrings` helper to convert Prisma `Date` fields before sending to the client. Safe DTOs are declared in `types/data.ts`.
+- **AI providers**: `lib/ai` centralizes model adapters for OpenRouter (text) and FAL (image). `/app/api/ai/route.ts` uses the registry to execute tasks and can persist generated assets to S3 via `lib/storage/s3.ts`.
 
 ## 2. Project Layout Cheatsheet
 | Path | Responsibility |
@@ -21,8 +24,17 @@ This guide gives downstream AI agents the context they need to work effectively 
 | `components/card-renderer/CardRenderer.tsx` | Client component that injects CSS and replaces template placeholders with card field values. |
 | `redux/` | Store, slices, and hooks for RTK. `studySlice` consumes the shared sync manager; `syncSlice` tracks queue/cursor state. |
 | `lib/` | Shared infrastructure (Prisma singleton, Dexie instance, sync manager + types, auth config, serialization helpers). |
+| `lib/ai/` | Model catalog + registry/adapters for OpenRouter and FAL. Add new models in `model-catalog.ts` (use `upstreamId` for provider identifiers, and declare `options.parameters` for dynamic inputs). |
+| `lib/storage/s3.ts` | Memoized S3 client factory and helpers for uploading generated assets. |
 | `prisma/schema.prisma` | MongoDB data model. Many relations already defined—consult before changing types. |
 | `public/docs/guide.md` | High-level architectural requirements supplied by the user. Treat as source of truth. |
+| `app/api/ai/route.ts` | Unified AI execution endpoint (text + image) with optional S3 persistence for generated imagery. |
+| `app/ai-lab/page.tsx` | Client playground that groups models by modality → provider → model, surfacing parameter schemas and payload templates. |
+| `app/api/ai/llm/route.ts` | Modality-specific text endpoint. Resolves model dynamically and invokes the OpenRouter adapters using catalog-driven parameters. |
+| `app/api/ai/text-to-image/route.ts` | Modality-specific image generation endpoint (text prompts). Normalises provider parameters based on catalog metadata. |
+| `app/api/ai/image-to-image/route.ts` | Image-to-image endpoint built on the shared media handler. Normalises catalog parameters and dispatches through the FAL adapter. |
+| `app/api/ai/text-to-video/route.ts` | Text-to-video endpoint that resolves providers via the catalog and streams requests through the FAL video adapter. |
+| `app/api/ai/image-to-video/route.ts` | Image-to-video endpoint for animating source imagery using catalogue metadata and the FAL video adapter. |
 
 ## 3. Operational Guidelines
 1. **Preserve Content/Format/Style separation**: Data (card content), templates, and styling must remain decoupled. Card rendering should always use the dedicated renderer.
@@ -40,6 +52,7 @@ This guide gives downstream AI agents the context they need to work effectively 
 - **Implementing API routes**: Place handlers under `app/api/.../route.ts`. Reuse Prisma client from `lib/prisma.ts`. Handle JSON parsing errors gracefully.
 - **Extending Redux state**: Define new slices under `redux/slices/` and register them in `redux/store.ts`. Keep reducers pure; offload async logic to thunks or RTK Query later. Sync-related logic should live in the shared manager or hooks, not per-slice custom code.
 - **Handling uploads**: Call the `/api/s3-upload` route from the client, then upload directly to S3 with the returned URL. Do not expose AWS keys to the browser.
+- **Invoking AI models**: POST `/api/ai` with a registered `modelId`. Text requests expect chat messages; image requests can opt into S3 persistence (`persist.provider = "s3"`). Use `GET /api/ai` to list supported models before invoking.
 - **Offline-first features**: Queue entity mutations via `useSyncOperations`. The auto-sync runtime (`useAutoSync`) handles intervals, visibility, and network events; leave it mounted in `AppProviders`.
 
 ## 5. Style & Quality Bar
@@ -54,4 +67,78 @@ This guide gives downstream AI agents the context they need to work effectively 
 - Integrate charts via `echarts-for-react` in a future `stats` feature.
 - Expand i18n coverage and locale switching UI.
 
-Use this document as a launchpad. Always re-check the repository state (`git status`) before edits—user may leave in-progress work that must not be overwritten. Good luck!***
+## 7. Data Sync Deep Dive
+
+### 7.1 Flow Overview
+1. **Queue** – Components call `useSyncOperations` (e.g., `enqueueCardUpsert`). This records a pending operation in Dexie via `useSyncQueue`.
+2. **Trigger** – `SyncRuntime` in `AppProviders` fires an initial sync and delegates cadence to `useAutoSync` (interval-based, visibility change, network re-connect).
+3. **Execute** – `performSync` collects pending items + cursors/device metadata and POSTs them to `/api/sync`.
+4. **Server** – The real implementation must execute operations inside a MongoDB session, detect conflicts, and return authoritative entities + new cursors.
+5. **Apply** – Client runs a Dexie transaction to upsert returned entities, clear applied operations, and store updated metadata. `studySlice`/`syncSlice` receive the final snapshot.
+
+### 7.2 Data Categories & Frequency
+| Category | Entities | Default cadence | Notes |
+| --- | --- | --- | --- |
+| `cold` | Decks, templates, styles | Bootstrap + explicit edit | Low churn, pull on demand. |
+| `warm` | Cards | Warm interval (5 min) + edit events | Version check required. |
+| `hot` | Progress / review logs | Hot interval (60 s), visibility, network online | Merge append-only data. |
+
+### 7.3 Module Responsibilities
+- `lib/sync/manager.ts` – Device ID, cursor metadata, transactional Dexie updates, queue cleanup, snapshot reading.
+- `lib/sync/mappers.ts` – Map safe DTOs to Dexie records.
+- `hooks/use-sync-queue.ts` – High-level enqueue + manual sync (dispatches `syncData` thunk, updates queue size).
+- `hooks/use-sync-operations.ts` – Strongly typed helpers for deck/card/progress operations.
+- `hooks/use-auto-sync.ts` – Interval + event listeners for automated sync scheduling.
+- `redux/slices/studySlice.ts` – Wraps `performSync`, stores latest safe entities.
+- `redux/slices/syncSlice.ts` – Tracks queue size, cursors, device ID, last sync reason/status (useful for diagnostics UI).
+
+### 7.4 `/api/sync` Contract (current stub, expected behavior)
+**Request (`SyncRequestPayload`):**
+```json
+{
+  "deviceId": "uuid",
+  "operations": [
+    {
+      "id": "op-uuid",
+      "entity": "card",
+      "entityId": "card-id",
+      "type": "UPSERT",
+      "payload": { "...SafeCard" },
+      "category": "warm",
+      "version": "2025-01-01T00:00:00.000Z",
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "cursors": { "warm": "2025-01-01T00:00:00.000Z" },
+  "options": { "categories": ["warm"], "forcePull": false, "reason": "hot-interval" }
+}
+```
+
+**Response (`SyncResponsePayload`):**
+```json
+{
+  "appliedOperationIds": ["op-uuid"],
+  "collections": {
+    "cards": [{ "...SafeCard" }],
+    "progresses": [{ "...SafeUserCardProgress" }],
+    "decks": [],
+    "templates": [],
+    "styles": []
+  },
+  "cursors": { "warm": "2025-01-01T00:00:05.000Z" },
+  "deviceId": "uuid",
+  "timestamp": "2025-01-01T00:00:05.000Z"
+}
+```
+
+### 7.5 Conflict Policy
+- Compare incoming `version`/`updatedAt` with server value. Reject or merge stale writes; always return the canonical entity.
+- Cold/warm entities: last-write-wins is acceptable but inform clients via returned payload.
+- Hot entities: treat `reviewRecords` append-only—merge arrays server-side, recompute derived stability scheduling fields.
+
+### 7.6 Extension Checklist
+1. Add new safe DTO + Dexie table + mapper.
+2. Provide enqueue helper in `use-sync-operations`.
+3. Update server `/api/sync` implementation to handle new entity type atomically.
+4. Adjust auto-sync intervals if cadence differs.
+5. Surface new state in Redux slices if UI needs it (e.g., template sync status).

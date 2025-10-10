@@ -1,34 +1,15 @@
 import { randomUUID } from "node:crypto"
 
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { NextResponse } from "next/server"
 
-const region = process.env.AWS_REGION ?? ""
-const bucketName = process.env.AWS_BUCKET_NAME ?? ""
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID ?? ""
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY ?? ""
-
-const s3Client = new S3Client({
-  region,
-  credentials:
-    accessKeyId && secretAccessKey
-      ? {
-          accessKeyId,
-          secretAccessKey,
-        }
-      : undefined,
-})
+import { getS3Bucket, getS3Client } from "@/lib/storage/s3"
 
 export async function POST(request: Request) {
-  if (!bucketName || !region || !accessKeyId || !secretAccessKey) {
-    return NextResponse.json(
-      { error: "AWS credentials are not configured correctly" },
-      { status: 500 },
-    )
-  }
-
   try {
+    const bucketName = getS3Bucket()
+    const s3Client = getS3Client()
     const { fileName, fileType }: { fileName: string; fileType: string } = await request.json()
     const objectKey = `uploads/${randomUUID()}-${fileName}`
 

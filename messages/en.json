@@ -6,5 +6,119 @@
   "home": {
     "welcome": "Welcome back!",
     "cta": "Start studying"
+  },
+  "aiLab": {
+    "badge": "Playground",
+    "title": "AI Lab",
+    "description": "Send live requests to your configured AI providers. Pick a modality, fill in prompts and parameters, then inspect the raw API response.",
+    "sectionTitles": {
+      "llm": "LLM chat completion",
+      "vlm": "Vision-language models",
+      "text-to-image": "Text to image",
+      "image-to-image": "Image to image",
+      "text-to-video": "Text to video",
+      "image-to-video": "Image to video"
+    },
+    "sectionDescriptions": {
+      "llm": "Compare different chat models side by side—use the payload template to trigger responses via the /api/ai endpoint.",
+      "vlm": "Vision-language models will appear here once configured in the model catalog.",
+      "text-to-image": "Review generation options for image providers such as FAL or WaveSpeed.",
+      "image-to-image": "Send edit requests for existing imagery—supply the source URLs plus any additional parameters.",
+      "text-to-video": "Trigger video generation from text prompts using your configured providers.",
+      "image-to-video": "Animate still images into video clips. Provide the source image URL and fine-tune optional settings."
+    },
+    "emptyState": {
+      "title": "No models configured",
+      "description": "Add entries to lib/ai/model-catalog.ts to enable this modality."
+    },
+    "selectors": {
+      "title": "Choose provider & model",
+      "description": "Pick a provider, then drill into a specific model to see supported parameters and defaults.",
+      "providerLabel": "Provider",
+      "providerPlaceholder": "Select a provider",
+      "providerGroup": "Available providers",
+      "noProviders": "No providers are registered for this modality.",
+      "modelLabel": "Model",
+      "modelPlaceholder": "Select a model",
+      "modelGroup": "Available models",
+      "noModels": "No models available for the selected provider."
+    },
+    "formCard": {
+      "title": "Compose request",
+      "description": "Complete the form below and send it to {endpoint}."
+    },
+    "formFields": {
+      "systemPrompt": "System prompt",
+      "userPrompt": "User prompt",
+      "prompt": "Prompt",
+      "temperature": "Temperature",
+      "maxTokens": "Max output tokens"
+    },
+    "advancedOverrides": {
+      "label": "Advanced JSON overrides",
+      "help": "Merged into the request body before dispatch. Perfect for experimenting with provider-specific flags."
+    },
+    "actions": {
+      "run": "Send request",
+      "running": "Sending…",
+      "noEndpoint": "No API endpoint configured for this modality.",
+      "unknownError": "Unknown error"
+    },
+    "uploadTabs": {
+      "urls": "Paste URLs",
+      "upload": "Upload media"
+    },
+    "upload": {
+      "button": "Choose files",
+      "hint": "Uploaded files are stored in S3 and their URLs are added automatically.",
+      "uploading": "Uploading…",
+      "error": "Upload failed: {message}",
+      "urlPlaceholder": "https://example.com/image.jpg\nhttps://example.com/another.png",
+      "manualHint": "Enter one URL per line or use the uploader tab.",
+      "currentTitle": "Current URLs"
+    },
+    "response": {
+      "title": "API response",
+      "description": "Review generated media and inspect the raw JSON payload.",
+      "empty": "No request has been sent yet.",
+      "error": "Request failed: {message}",
+      "textOutput": "Model output",
+      "assets": "Generated assets",
+      "raw": "Raw JSON"
+    },
+    "metadata": {
+      "id": "Model ID",
+      "provider": "Provider",
+      "modality": "Modality",
+      "task": "Task",
+      "structuredOutputs": "Structured outputs",
+      "endpointPath": "Endpoint path",
+      "defaultParams": "Default parameters"
+    },
+    "boolean": {
+      "yes": "Yes",
+      "no": "No"
+    },
+    "taskLabels": {
+      "text": "Text generation",
+      "image": "Image generation",
+      "video": "Video generation"
+    },
+    "modalityLabels": {
+      "llm": "Large language model",
+      "vlm": "Vision-language model",
+      "text-to-image": "Text to image",
+      "image-to-image": "Image to image",
+      "text-to-video": "Text to video",
+      "image-to-video": "Image to video"
+    },
+    "parameterTypeLabels": {
+      "string": "String",
+      "number": "Number",
+      "integer": "Integer",
+      "boolean": "Boolean",
+      "array": "Array",
+      "object": "Object"
+    }
   }
 }

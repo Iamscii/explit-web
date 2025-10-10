@@ -6,5 +6,119 @@
   "home": {
     "welcome": "欢迎回来！",
     "cta": "开始复习"
+  },
+  "aiLab": {
+    "badge": "Playground",
+    "title": "AI 实验室",
+    "description": "针对已配置的 AI 服务实时发起请求。选择模态、填写提示词与参数，即可查看接口的原始返回。",
+    "sectionTitles": {
+      "llm": "LLM 对话补全",
+      "vlm": "多模态模型",
+      "text-to-image": "文生图",
+      "image-to-image": "图生图",
+      "text-to-video": "文生视频",
+      "image-to-video": "图生视频"
+    },
+    "sectionDescriptions": {
+      "llm": "对比不同的对话模型，复制示例载荷即可通过 /api/ai 触发请求。",
+      "vlm": "在模型目录中配置多模态模型后，相关信息会显示在此处。",
+      "text-to-image": "查看图像生成服务（如 FAL、WaveSpeed）的可用参数与默认值。",
+      "image-to-image": "对现有图像进行编辑，填写资源地址并调整附加参数即可提交。",
+      "text-to-video": "基于文本提示生成视频，需已在目录中配置对应服务。",
+      "image-to-video": "让静态图片动起来，提供原图地址并根据需要调整生成参数。"
+    },
+    "emptyState": {
+      "title": "尚未配置模型",
+      "description": "在 lib/ai/model-catalog.ts 中添加模型定义即可启用此模态。"
+    },
+    "selectors": {
+      "title": "选择服务商与模型",
+      "description": "先选择服务商，再切换具体模型以查看支持的参数与默认配置。",
+      "providerLabel": "服务商",
+      "providerPlaceholder": "请选择服务商",
+      "providerGroup": "已注册的服务商",
+      "noProviders": "当前模态尚未注册任何服务商。",
+      "modelLabel": "模型",
+      "modelPlaceholder": "请选择模型",
+      "modelGroup": "可用模型",
+      "noModels": "该服务商暂无可用模型。"
+    },
+    "formCard": {
+      "title": "组装请求",
+      "description": "填写表单并提交到 {endpoint}。"
+    },
+    "formFields": {
+      "systemPrompt": "系统提示词",
+      "userPrompt": "用户输入",
+      "prompt": "提示词",
+      "temperature": "Temperature（温度）",
+      "maxTokens": "最大输出 Token"
+    },
+    "advancedOverrides": {
+      "label": "高级 JSON 覆盖",
+      "help": "发送前会合并到请求体，可用于尝试暂未在表单中暴露的参数。"
+    },
+    "actions": {
+      "run": "发送请求",
+      "running": "请求发送中…",
+      "noEndpoint": "该模态尚未配置接口地址。",
+      "unknownError": "未知错误"
+    },
+    "uploadTabs": {
+      "urls": "输入链接",
+      "upload": "上传媒体"
+    },
+    "upload": {
+      "button": "选择文件",
+      "hint": "文件将上传至 S3，并自动填入生成的可访问链接。",
+      "uploading": "正在上传…",
+      "error": "上传失败：{message}",
+      "urlPlaceholder": "https://example.com/image.jpg\nhttps://example.com/another.png",
+      "manualHint": "每行填写一个 URL，或切换到“上传媒体”标签进行本地上传。",
+      "currentTitle": "当前链接"
+    },
+    "response": {
+      "title": "接口响应",
+      "description": "查看生成的媒体资源，并检查原始 JSON。",
+      "empty": "尚未发起请求。",
+      "error": "请求失败：{message}",
+      "textOutput": "模型输出",
+      "assets": "生成的资源",
+      "raw": "原始 JSON"
+    },
+    "metadata": {
+      "id": "模型 ID",
+      "provider": "服务商",
+      "modality": "模态",
+      "task": "任务类型",
+      "structuredOutputs": "结构化输出",
+      "endpointPath": "接口路径",
+      "defaultParams": "默认参数"
+    },
+    "boolean": {
+      "yes": "是",
+      "no": "否"
+    },
+    "taskLabels": {
+      "text": "文本生成",
+      "image": "图像生成",
+      "video": "视频生成"
+    },
+    "modalityLabels": {
+      "llm": "大语言模型",
+      "vlm": "多模态模型",
+      "text-to-image": "文生图",
+      "image-to-image": "图生图",
+      "text-to-video": "文生视频",
+      "image-to-video": "图生视频"
+    },
+    "parameterTypeLabels": {
+      "string": "字符串",
+      "number": "数字",
+      "integer": "整数",
+      "boolean": "布尔值",
+      "array": "数组",
+      "object": "对象"
+    }
   }
 }
