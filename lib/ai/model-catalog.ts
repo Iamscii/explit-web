@@ -279,6 +279,78 @@ export const MODEL_CATALOG: ModelCatalog = {
         ],
       },
     }),
+    createModelEntry({
+      label: "FAL Flux Pro v1.1 Ultra",
+      provider: "fal",
+      modality: "text-to-image",
+      upstreamId: "fal-ai/flux-pro/v1.1-ultra",
+      options: {
+        modelFieldName: "path",
+        endpointPath: "fal-ai/flux-pro/v1.1-ultra",
+        parameters: [
+          {
+            key: "prompt",
+            type: "string",
+            required: true,
+            description: "The prompt to generate an image from",
+          },
+          {
+            key: "seed",
+            type: "number",
+            description: "The same seed and the same prompt given to the same version of the model will output the same image every time",
+          },
+          {
+            key: "sync_mode",
+            type: "boolean",
+            defaultValue: false,
+            description: "If set to true, the function will wait for the image to be generated and uploaded before returning the response",
+          },
+          {
+            key: "num_images",
+            type: "number",
+            defaultValue: 1,
+            description: "The number of images to generate",
+          },
+          {
+            key: "enable_safety_checker",
+            type: "boolean",
+            defaultValue: true,
+            description: "If set to true, the safety checker will be enabled",
+          },
+          {
+            key: "output_format",
+            type: "string",
+            defaultValue: "jpeg",
+            enum: ["jpeg", "png"],
+            description: "The format of the generated image",
+          },
+          {
+            key: "safety_tolerance",
+            type: "string",
+            defaultValue: "2",
+            enum: ["1", "2", "3", "4", "5", "6"],
+            description: "The safety tolerance level for the generated image. 1 being the most strict and 5 being the most permissive",
+          },
+          {
+            key: "enhance_prompt",
+            type: "boolean",
+            description: "Whether to enhance the prompt for better results",
+          },
+          {
+            key: "aspect_ratio",
+            type: "string",
+            defaultValue: "16:9",
+            enum: ["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"],
+            description: "The aspect ratio of the generated image",
+          },
+          {
+            key: "raw",
+            type: "boolean",
+            description: "Generate less processed, more natural-looking images",
+          },
+        ],
+      },
+    }),
   ],
   "image-to-image": [
     createModelEntry({

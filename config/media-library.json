@@ -1,0 +1,14 @@
+[
+  {
+    "id": "sample-image-1",
+    "label": "Sample Landscape",
+    "type": "image",
+    "url": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    "id": "sample-image-2",
+    "label": "City skyline",
+    "type": "image",
+    "url": "https://images.unsplash.com/photo-1491557345352-5929e343eb89?auto=format&fit=crop&w=1200&q=80"
+  }
+]

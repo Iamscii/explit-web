@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
-import type { ChangeEvent } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { ChangeEvent, ReactNode } from "react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
@@ -91,8 +91,27 @@ interface FieldDefinition {
   parameterType?: ModelParameterType
 }
 
+interface MediaAsset {
+  id: string
+  label?: string
+  url: string
+  type?: string
+}
+
+interface MediaLibraryState {
+  assets: MediaAsset[]
+  loading: boolean
+  error: string | null
+}
+
 export default function AiLabPage() {
   const t = useTranslations("aiLab")
+
+  const [mediaLibrary, setMediaLibrary] = useState<MediaLibraryState>({
+    assets: [],
+    loading: true,
+    error: null,
+  })
 
   const sections = useMemo<SectionData[]>(() => {
     return MODALITY_ORDER.map((modality) => {
@@ -105,6 +124,55 @@ export default function AiLabPage() {
         endpoint: SECTION_ENDPOINT[modality] ?? null,
       }
     })
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchLibrary = async () => {
+      try {
+        const response = await fetch("/api/media-library")
+        if (!response.ok) {
+          throw new Error(response.statusText)
+        }
+        const data = (await response.json()) as { assets?: unknown }
+        const assets = Array.isArray(data.assets)
+          ? (data.assets as Array<Record<string, unknown>>).reduce<MediaAsset[]>((acc, item, index) => {
+              const url = typeof item.url === "string" ? item.url : ""
+              if (!url) {
+                return acc
+              }
+
+              acc.push({
+                id: typeof item.id === "string" ? item.id : `asset-${index}`,
+                label: typeof item.label === "string" ? item.label : undefined,
+                url,
+                type: typeof item.type === "string" ? item.type : undefined,
+              })
+
+              return acc
+            }, [])
+          : []
+
+        if (!cancelled) {
+          setMediaLibrary({ assets, loading: false, error: null })
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMediaLibrary({
+            assets: [],
+            loading: false,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
+    }
+
+    fetchLibrary()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const { initialSelection, initialState } = useMemo(() => {
@@ -469,6 +537,7 @@ export default function AiLabPage() {
                                 field={field}
                                 value={values[field.key]}
                                 onChange={(next) => handleFieldChange(section.modality, field.key, next)}
+                                library={mediaLibrary}
                               />
                             ))}
                           </div>
@@ -846,15 +915,14 @@ function FieldInput({
   field,
   value,
   onChange,
+  library,
 }: {
   field: FieldDefinition
   value: string | boolean | undefined
   onChange: (value: string | boolean) => void
+  library: MediaLibraryState
 }) {
   const t = useTranslations("aiLab")
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
   const description = field.description ? (
     <p className="text-muted-foreground mt-1 text-xs">{field.description}</p>
   ) : null
@@ -877,135 +945,16 @@ function FieldInput({
   }
 
   if (field.type === "urls") {
-    const urlsValue = typeof value === "string" ? value : ""
-    const parsedUrls = parseUrlInput(urlsValue)
-
-    const handleManualChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-      setUploadError(null)
-      onChange(event.target.value)
-    }
-
-    const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files
-      if (!files?.length) {
-        return
-      }
-
-      setUploading(true)
-      setUploadError(null)
-
-      const uploadedUrls: string[] = []
-
-      try {
-        for (const file of Array.from(files)) {
-          const presignResponse = await fetch("/api/s3-upload", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              fileName: file.name,
-              fileType: file.type || "application/octet-stream",
-            }),
-          })
-
-          if (!presignResponse.ok) {
-            const errorPayload = await presignResponse.json().catch(() => null)
-            const message =
-              (errorPayload && typeof errorPayload.error === "string" && errorPayload.error) ||
-              presignResponse.statusText
-            throw new Error(message)
-          }
-
-          const { uploadUrl } = (await presignResponse.json()) as { uploadUrl: string }
-
-          const uploadResponse = await fetch(uploadUrl, {
-            method: "PUT",
-            headers: {
-              "Content-Type": file.type || "application/octet-stream",
-            },
-            body: file,
-          })
-
-          if (!uploadResponse.ok) {
-            throw new Error(`S3 upload failed (${uploadResponse.status})`)
-          }
-
-          const publicUrl = uploadUrl.split("?")[0]
-          uploadedUrls.push(publicUrl)
-        }
-
-        const combined = [...parsedUrls, ...uploadedUrls]
-        onChange(combined.join("\n"))
-      } catch (error) {
-        setUploadError(error instanceof Error ? error.message : String(error))
-      } finally {
-        setUploading(false)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ""
-        }
-      }
-    }
-
+    const textValue = typeof value === "string" ? value : ""
     return (
-      <div className="flex flex-col space-y-3">
-        <Label htmlFor={field.key} className="text-sm font-medium">
-          {field.label}
-          {field.required ? <span className="text-destructive ml-1">*</span> : null}
-        </Label>
-        <Tabs defaultValue="manual">
-          <TabsList>
-            <TabsTrigger value="manual">{t("uploadTabs.urls")}</TabsTrigger>
-            <TabsTrigger value="upload">{t("uploadTabs.upload")}</TabsTrigger>
-          </TabsList>
-          <TabsContent value="manual" className="space-y-2">
-            <Textarea
-              id={field.key}
-              value={urlsValue}
-              onChange={handleManualChange}
-              rows={field.rows ?? 5}
-              placeholder={t("upload.urlPlaceholder")}
-              className="font-mono text-sm"
-            />
-            <p className="text-muted-foreground text-xs">{t("upload.manualHint")}</p>
-          </TabsContent>
-          <TabsContent value="upload" className="space-y-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={handleFilesSelected}
-            />
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                {uploading ? t("upload.uploading") : t("upload.button")}
-              </Button>
-              <span className="text-muted-foreground text-xs">
-                {uploading ? t("upload.uploading") : t("upload.hint")}
-              </span>
-            </div>
-            {uploadError ? (
-              <p className="text-destructive text-xs">{t("upload.error", { message: uploadError })}</p>
-            ) : null}
-          </TabsContent>
-        </Tabs>
-        {parsedUrls.length > 0 ? (
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("upload.currentTitle")}
-            </p>
-            <ul className="space-y-1 text-xs font-mono">
-              {parsedUrls.map((url) => (
-                <li key={url} className="truncate">
-                  {url}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {description}
-      </div>
+      <UrlsFieldInput
+        field={field}
+        value={textValue}
+        onChange={(updated) => onChange(updated)}
+        description={description}
+        library={library}
+        t={t}
+      />
     )
   }
 
@@ -1069,6 +1018,208 @@ function FieldInput({
           onChange={(event) => onChange(event.target.value)}
         />
       )}
+      {description}
+    </div>
+  )
+}
+
+interface UrlsFieldInputProps {
+  field: FieldDefinition
+  value: string
+  onChange: (value: string) => void
+  description: ReactNode
+  library: MediaLibraryState
+  t: ReturnType<typeof useTranslations>
+}
+
+function UrlsFieldInput({ field, value, onChange, description, library, t }: UrlsFieldInputProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const parsedUrls = parseUrlInput(value)
+
+  const handleManualChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setUploadError(null)
+    onChange(event.target.value)
+  }
+
+  const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files?.length) {
+      return
+    }
+
+    setUploading(true)
+    setUploadError(null)
+
+    const uploadedUrls: string[] = []
+
+    try {
+      for (const file of Array.from(files)) {
+        const presignResponse = await fetch("/api/s3-upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileType: file.type || "application/octet-stream",
+          }),
+        })
+
+        if (!presignResponse.ok) {
+          const errorPayload = await presignResponse.json().catch(() => null)
+          const message =
+            (errorPayload && typeof errorPayload.error === "string" && errorPayload.error) ||
+            presignResponse.statusText
+          throw new Error(message)
+        }
+
+        const { uploadUrl } = (await presignResponse.json()) as { uploadUrl: string }
+
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: file,
+        })
+
+        if (!uploadResponse.ok) {
+          throw new Error(`S3 upload failed (${uploadResponse.status})`)
+        }
+
+        const publicUrl = uploadUrl.split("?")[0]
+        uploadedUrls.push(publicUrl)
+      }
+
+      const combined = [...parsedUrls, ...uploadedUrls]
+      onChange(combined.join("\n"))
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
+
+  const handleAddFromLibrary = (url: string) => {
+    if (!url) {
+      return
+    }
+
+    const current = parseUrlInput(value)
+    if (current.includes(url)) {
+      return
+    }
+    onChange([...current, url].join("\n"))
+  }
+
+  return (
+    <div className="flex flex-col space-y-3">
+      <Label htmlFor={field.key} className="text-sm font-medium">
+        {field.label}
+        {field.required ? <span className="text-destructive ml-1">*</span> : null}
+      </Label>
+      <Tabs defaultValue="manual">
+        <TabsList>
+          <TabsTrigger value="manual">{t("uploadTabs.urls")}</TabsTrigger>
+          <TabsTrigger value="upload">{t("uploadTabs.upload")}</TabsTrigger>
+          <TabsTrigger value="library">{t("uploadTabs.library")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="manual" className="space-y-2">
+          <Textarea
+            id={field.key}
+            value={value}
+            onChange={handleManualChange}
+            rows={field.rows ?? 5}
+            placeholder={t("upload.urlPlaceholder")}
+            className="font-mono text-sm"
+          />
+          <p className="text-muted-foreground text-xs">{t("upload.manualHint")}</p>
+        </TabsContent>
+        <TabsContent value="upload" className="space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFilesSelected}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              {uploading ? t("upload.uploading") : t("upload.button")}
+            </Button>
+            <span className="text-muted-foreground text-xs">
+              {uploading ? t("upload.uploading") : t("upload.hint")}
+            </span>
+          </div>
+          {uploadError ? (
+            <p className="text-destructive text-xs">{t("upload.error", { message: uploadError })}</p>
+          ) : null}
+        </TabsContent>
+        <TabsContent value="library" className="space-y-2">
+          {library.loading ? (
+            <p className="text-muted-foreground text-xs">{t("upload.loading")}</p>
+          ) : library.error ? (
+            <p className="text-destructive text-xs">{t("upload.errorLoading", { message: library.error })}</p>
+          ) : library.assets.length === 0 ? (
+            <p className="text-muted-foreground text-xs">{t("upload.empty")}</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-muted-foreground text-xs">{t("upload.libraryHint")}</p>
+              {library.assets.map((asset) => {
+                const alreadyAdded = parsedUrls.includes(asset.url)
+                const previewIsVideo = isVideoAsset({ url: asset.url, mimeType: asset.type })
+                const displayLabel = asset.label ?? asset.url
+
+                return (
+                  <div key={asset.id ?? asset.url} className="flex items-center gap-3 rounded-md border bg-muted/30 p-3">
+                    <div className="h-16 w-16 overflow-hidden rounded bg-background">
+                      {previewIsVideo ? (
+                        <video src={asset.url} className="h-full w-full object-cover" muted loop playsInline />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={asset.url} alt={displayLabel} className="h-full w-full object-cover" loading="lazy" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{displayLabel}</p>
+                      <p className="text-muted-foreground text-xs truncate">{asset.url}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={alreadyAdded ? "outline" : "default"}
+                      size="sm"
+                      disabled={alreadyAdded}
+                      onClick={() => handleAddFromLibrary(asset.url)}
+                    >
+                      {alreadyAdded ? t("upload.added") : t("upload.add")}
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+      {parsedUrls.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("upload.currentTitle")}
+          </p>
+          <ul className="space-y-1 text-xs font-mono">
+            {parsedUrls.map((url) => (
+              <li key={url} className="truncate">
+                {url}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {description}
     </div>
   )
