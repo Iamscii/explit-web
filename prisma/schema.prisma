@@ -1,15 +1,573 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
-  output   = "../app/generated/prisma"
+  provider        = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
+}
+
+// 枚举来区分不同类型的模板，目前未启用
+enum TemplateType {
+  BASIC
+  CLOZE
+  CHOICE
+  SPELLING // 拼写题
+  READING // 发音朗读
+}
+
+// 填空题显示答案选项
+enum RevealType {
+  ALL
+  SINGLE
+}
+
+enum FieldType {
+  TEXT
+  RICH_TEXT // 用于包含格式化文本、链接、列表等的复杂内容
+  CHOICE
+  IMAGE
+  AUDIO
+  VIDEO
+  // DATE // 用于学习历史事件、计划表或其他与日期相关的信息
+  // NUMBER // 用于各种需要精确数值的场景，例如数学公式、统计数据等
+  // BOOLEAN // 用于标记卡片的某种状态，例如是否已完成、是否需要重点关注等
+}
+
+enum CardFace {
+  FRONT
+  BACK
+  UNCATEGORIZED
+}
+
+enum ConditionType {
+  LEARNING_STATUS
+  ADDED_TIME
+  LEARNING_TIME
+  TAG
+  FAVORITED_STATUS
+  ERROR_RATE
+  PARENT_FOLDER
+  CARD_NAME
+  COMPOSITE
+}
+
+enum ConditionOperator {
+  LEARNED // 卡片已学习
+  NOT_LEARNED // 卡片未学
+  NEED_REVIEW // 卡片需要复习
+  BEFORE // 时间早于某个点
+  AFTER // 时间晚于某个点
+  INRANGE // 时间在某个范围内
+  EQUALS // 等于某个时间或其他数值
+  INPAST // 在过去的某个时间段内，例如过去一周/一月/一年
+  INCLUDES // 包含某个标签或词
+  EXCLUDES // 不包含某个标签或词
+  FAVORITED // 已收藏
+  UNFAVORITED // 未收藏
+  GREATERTHAN // 错误率大于某个百分比或其他数值大于某个值
+  LESSTHAN // 错误率小于某个百分比或其他数值小于某个值
+  EQUALS_RATE // 错误率等于某个特定百分比
+  BELONGS_TO // 属于某个文件夹或分类
+  DOES_NOT_BELONG // 不属于某个文件夹或分类
+  NAME_CONTAINS // 卡片名称包含某个词或短语
+  NAME_DOES_NOT_CONTAIN // 卡片名称不包含某个词或短语
+  NAME_EQUALS // 卡片名称完全匹配某个词或短语
+  NAME_STARTS_WITH // 卡片名称以某个词或短语开头
+  NAME_ENDS_WITH // 卡片名称以某个词或短语结尾
+  ANY // 综合条件中的任一条件满足
+  ANY_NOT // 综合条件中的任一条件不满足
+  ALL // 综合条件中的所有条件都满足
+  ALL_NOT // 综合条件中的所有条件都不满足
+}
+
+enum DeckType {
+  ALL
+  UNCATEGORIZED
+  FAVORITED
+  SHARED
+  READ_ONLY
+  ARCHIVED
+  DELETED
+  USER
+}
+
+model SmartDeck {
+  id          String               @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  createdById String               @db.ObjectId
+  user        User                 @relation(fields: [createdById], references: [id])
+  conditions  SmartDeckCondition[]
+}
+
+// 用于保存智能文件夹条件的模型
+model SmartDeckCondition {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  smartDeckId       String            @db.ObjectId
+  conditionType     ConditionType
+  conditionOperator ConditionOperator
+  conditionValue    Json
+  smartDeck         SmartDeck         @relation(fields: [smartDeckId], references: [id])
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.String
+  access_token      String? @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.String
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([provider])
+}
+
+model User {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  email          String    @unique
+  emailVerified  DateTime?
+  image          String?
+  hashedPassword String?
+  createdAt      DateTime  @default(now())
+
+  accounts Account[]
+
+  createdCards Card[] @relation("CardCreatedBy")
+  ownedCards   Card[] @relation("CardOwnedBy")
+
+  decksCreatedBy Deck[] @relation("DeckCreatedBy")
+  decksOwnedBy   Deck[] @relation("DeckOwnedBy")
+
+  smartDecks SmartDeck[]
+
+  createdTemplates Template[] @relation("TemplateCreateBy")
+  ownedTemplates   Template[] @relation("TemplateOwnedBy")
+
+  cardProgresses      UserCardProgress[]
+  userCardPreferences UserCardPreference[]
+  tags                Tag[]
+  updateLog           UpdateLog?
+
+  featureRequests FeatureRequest[]
+  votes           FeatureVote[]
+
+  preferences UserPreferences?
+
+  cardInteractions CardInteraction[]
+  comments         Comment[]
+}
+
+model Card {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  fieldValues    Json[]
+  createdById    String    @db.ObjectId
+  ownedById      String    @db.ObjectId
+  templateId     String    @db.ObjectId
+  createdAt      DateTime  @default(now())
+  lastModifiedAt DateTime  @updatedAt
+  deletedAt      DateTime?
+  lastAccessedAt DateTime?
+
+  template  Template @relation(fields: [templateId], references: [id])
+  createdBy User     @relation("CardCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  ownedBy   User     @relation("CardOwnedBy", fields: [ownedById], references: [id], onDelete: Cascade)
+
+  tags                CardToTag[]
+  sharedCards         SharedCard[]
+  decks               CardToDeck[]
+  userProgresses      UserCardProgress[]
+  userCardPreferences UserCardPreference[]
+
+  @@index([createdById, templateId])
+}
+
+model Deck {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  type           DeckType
+  name           String
+  createdById    String    @db.ObjectId
+  ownedById      String    @db.ObjectId
+  description    String?
+  parentId       String?   @db.ObjectId
+  parent         Deck?     @relation("DeckToDeck", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children       Deck[]    @relation("DeckToDeck")
+  createdAt      DateTime  @default(now())
+  lastModifiedAt DateTime  @updatedAt
+  deletedAt      DateTime?
+  lastAccessedAt DateTime?
+  favorited      Boolean
+
+  sharedGroups SharedDeck[]
+  tags         DeckToTag[]
+
+  createdBy          User               @relation("DeckCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  ownedBy            User               @relation("DeckOwnedBy", fields: [ownedById], references: [id], onDelete: Cascade)
+  cards              CardToDeck[]
+  userCardProgresses UserCardProgress[]
+}
+
+model CardToDeck {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  cardId         String   @db.ObjectId
+  deckId         String   @db.ObjectId
+  lastModifiedAt DateTime @updatedAt
+
+  card Card @relation(fields: [cardId], references: [id])
+  deck Deck @relation(fields: [deckId], references: [id])
+
+  @@unique([cardId, deckId])
+  @@index([deckId, cardId])
+}
+
+model SharedCard {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  cardId      String   @db.ObjectId
+  sharedWith  String   @db.ObjectId // 被分享的用户的ID
+  sharedAt    DateTime @default(now())
+  permissions Json? // 可选的字段，例如：是否允许接收者编辑卡片
+
+  card Card @relation(fields: [cardId], references: [id])
+}
+
+model SharedDeck {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  deckId      String   @db.ObjectId
+  sharedWith  String   @db.ObjectId // 被分享的用户的ID
+  sharedAt    DateTime @default(now())
+  permissions Json? // 可选的字段，例如：是否允许接收者编辑卡片，等等
+
+  deck Deck @relation(fields: [deckId], references: [id])
+}
+
+model Template {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime @default(now())
+  lastModifiedAt DateTime @updatedAt
+  name           String
+
+  createdById String  @db.ObjectId
+  ownedById   String  @db.ObjectId
+  description String?
+
+  styleId String? @db.ObjectId
+  style   Style?
+
+  // 区分简答题、填空题、选择题和拼写题
+  type     TemplateType
+  settings Json?
+
+  fields          Field[]
+  FieldPreference FieldPreference[]
+  cards           Card[]
+
+  createdBy User @relation("TemplateCreateBy", fields: [createdById], references: [id])
+  ownedBy   User @relation("TemplateOwnedBy", fields: [ownedById], references: [id])
+}
+
+model Field {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  type           FieldType
+  templateId     String    @db.ObjectId
+  lastModifiedAt DateTime  @updatedAt
+
+  template         Template          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  fieldPreferences FieldPreference[] @relation("FieldToPreference")
+}
+
+enum FieldRole {
+  QUESTION // 问题：适用于所有题型的主要问题
+  ANSWER // 答案：适用于简答题、填空题和拼写题的正确答案
+  OPTION // 选项：用于选择题的选项
+  HINT // 提示：可用于所有题型的额外提示信息
+  PASSAGE // 文章：用于阅读题的文章内容
+  BLANK // 空白：用于填空题中的空白部分
+  SPELLING_PROMPT // 拼写提示：用于拼写题的提示（如单词的发音或定义）
+  AUDIO_PROMPT // 音频提示：用于需要音频提示的题目（如听力题或发音题）
+  IMAGE_PROMPT // 图片提示：用于需要图片提示的题目
+  EXPLANATION // 解释：用于所有题型的解释或详细答案
+}
+
+model FieldPreference {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  fieldId    String @db.ObjectId
+  templateId String @db.ObjectId
+
+  role     FieldRole? // 如 QUESTION, ANSWER, OPTION 等来标识字段在卡片中的角色
+  face     CardFace? // 字段在卡片中的正反面，对于简答题可用
+  position Int? // 字段在卡片中的位置，对于简答题可用来控制显示顺序
+
+  styleJson      Json?
+  lastModifiedAt DateTime @updatedAt
+
+  field    Field    @relation(name: "FieldToPreference", fields: [fieldId], references: [id], onDelete: Cascade)
+  template Template @relation(fields: [templateId], references: [id])
+
+  @@unique([fieldId, templateId, face, position])
+}
+
+model Style {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime @default(now())
+  lastModifiedAt DateTime @updatedAt
+
+  stylesJson Json
+
+  templateId String   @unique @db.ObjectId
+  template   Template @relation(fields: [templateId], references: [id])
+}
+
+model Tag {
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  name           String      @unique
+  color          String? // 可选的颜色属性，方便在UI中进行区分
+  createdAt      DateTime    @default(now())
+  lastModifiedAt DateTime    @updatedAt
+  userId         String      @db.ObjectId
+  user           User        @relation(fields: [userId], references: [id])
+  cards          CardToTag[]
+  decks          DeckToTag[]
+}
+
+model CardToTag {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  cardId         String   @db.ObjectId
+  tagId          String   @db.ObjectId
+  lastModifiedAt DateTime @updatedAt
+
+  card Card @relation(fields: [cardId], references: [id])
+  tag  Tag  @relation(fields: [tagId], references: [id])
+
+  @@unique([cardId, tagId])
+}
+
+model DeckToTag {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  deckId         String   @db.ObjectId
+  tagId          String   @db.ObjectId
+  lastModifiedAt DateTime @updatedAt
+
+  deck Deck @relation(fields: [deckId], references: [id])
+  tag  Tag  @relation(fields: [tagId], references: [id])
+
+  @@unique([deckId, tagId])
+}
+
+model UserCardPreference {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  cardId String @db.ObjectId
+
+  favorited Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+  card Card @relation(fields: [cardId], references: [id])
+
+  @@unique([userId, cardId])
+}
+
+// 用户卡片学习情况
+model UserCardProgress {
+  // 基本信息
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  cardId         String   @db.ObjectId
+  lastModifiedAt DateTime @updatedAt // 记录的最后更新时间
+
+  // fsrs算法参数
+  nextReviewDate DateTime? // 下次复习日期（原 FSRS 中的 due）
+  stability      Float // 代表卡片的稳定性，信息保留程度的度量
+  difficulty     Float // 代表卡片内容的固有难度
+  elapsedDays    Int            @default(0) // 自上次复习以来的天数
+  scheduledDays  Int            @default(0) // 下次安排复习的间隔天数
+  reps           Int            @default(0) // 卡片被复习的总次数
+  lapses         Int            @default(0) // 卡片被遗忘或回答错误的次数
+  learningStatus LearningStatus // 卡片当前状态
+  // lastReviewedAt DateTime? // 最后一次复习的时间（可选）
+
+  // 学习状态相关
+  reviewRecords  ReviewRecord[] // 用户复习记录
+  totalStudyTime Float          @default(0) // 总学习时间（分钟）
+
+  cardInteractions CardInteraction[] // LLM 对话历史
+  comments         Comment[] // 用户评论
+
+  // correctCount   Int @default(0) // 正确回答次数
+  // incorrectCount Int @default(0) // 错误回答次数
+  // reviewLog Json? // 使用Json来存储复习日志，但需确保应用逻辑处理这些数据的正确性和兼容性
+
+  user User @relation(fields: [userId], references: [id])
+  card Card @relation(fields: [cardId], references: [id])
+
+  deckId String @db.ObjectId
+  deck   Deck   @relation(fields: [deckId], references: [id])
+
+  @@unique([userId, cardId])
+  @@index([userId, deckId, nextReviewDate, learningStatus])
+}
+
+// 复习详细记录
+type ReviewRecord {
+  updatedAt     DateTime
+  rating        CardRating
+  answer        String
+  durationSpent Float      @default(0.0) // 用户在此卡片上花费的总时间，可以是秒或分钟
+}
+
+// 卡片对话记录
+model CardInteraction {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  role       String
+  content    String
+  updatedAt  DateTime
+  progressId String    @db.ObjectId
+  userId     String    @db.ObjectId
+  deletedAt  DateTime?
+
+  progress UserCardProgress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id])
+
+  @@index([progressId])
+}
+
+// 卡片评论
+model Comment {
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
+  content    String
+  updatedAt  DateTime
+  parentId   String?           @db.ObjectId
+  targetType CommentTargetType
+  targetId   String            @db.ObjectId
+  progressId String            @db.ObjectId
+  deletedAt  DateTime?
+  userId     String            @db.ObjectId
+
+  progress UserCardProgress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+  parent   Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies  Comment[]        @relation("CommentReplies")
+  user     User             @relation(fields: [userId], references: [id])
+
+  @@index([progressId])
+  @@index([parentId])
+  @@index([userId])
+}
+
+enum CardRating {
+  Manual
+  Again
+  Hard
+  Good
+  Easy
+}
+
+enum LearningStatus {
+  NEW // 新卡片，还未开始学习
+  LEARNING // 正在学习中
+  REVIEWING // 正在复习
+  RELEARNING // 重新学习
+  MASTERED // 已掌握，不再需要复习
+}
+
+enum CommentTargetType {
+  CARD
+  DECK
+  PROGRESS
+}
+
+// 用于记录用户的操作日志，例如各模型的创建、修改、删除等
+model UpdateLog {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  lastUpdated  DateTime @default(now())
+  modelUpdates Json
+
+  userId String @unique @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+// 知识图谱相关
+model GraphData {
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  topic          String
+  sourceText     String? // 可选字段
+  sourceUrl      String? // 可选字段
+  nodes          GraphNode[] // 所有类型的节点使用同一字段
+  links          GraphLink[]
+  createdAt      DateTime    @default(now())
+  lastModifiedAt DateTime    @updatedAt
+}
+
+// 更新后的基础节点模型
+type GraphNode {
+  id   String
+  type GraphNodeType // 节点类型
+  data Json // 存放各种类型的节点数据
+}
+
+// 定义节点类型枚举
+enum GraphNodeType {
+  Image
+  Text
+}
+
+type GraphLink {
+  source       String // 源节点ID
+  target       String // 目标节点ID
+  relationship String? // 可选的关系描述
+}
+
+// 用户反馈投票相关
+model FeatureRequest {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  content   String
+  votes     FeatureVote[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @db.ObjectId
+}
+
+model FeatureVote {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  requestId String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id])
+  request FeatureRequest @relation(fields: [requestId], references: [id])
+
+  @@unique([userId, requestId])
+}
+
+// 用户偏好设置
+model UserPreferences {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String   @unique @db.ObjectId
+  preferredLanguage String
+  interfaceTheme    String
+  defaultLLMModel   String
+  notifications     Boolean  @default(true) // 是否启用通知
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  spacedRepetition    String? // 间隔重复算法
+  cardDisplayOrder    String? // 卡片显示顺序，例如 "asc" 或 "desc"
+  reviewFrequency     String? // 复习频率，例如 "daily", "weekly"
+  cardLimitPerSession Int? // 每次学习会话的卡片数量限制
+  goalSettings        Json? // 目标设置，例如复习目标、学习规划等
+  defaultCardTemplate String? // 默认卡片模板
+  defaultDeck         String? // 默认文件夹
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

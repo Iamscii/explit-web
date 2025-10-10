@@ -1,0 +1,10 @@
+{
+  "app": {
+    "title": "Explit Study",
+    "description": "An Anki-inspired spaced repetition platform."
+  },
+  "home": {
+    "welcome": "Welcome back!",
+    "cta": "Start studying"
+  }
+}

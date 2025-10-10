@@ -1,0 +1,10 @@
+{
+  "app": {
+    "title": "Explit 学习",
+    "description": "一款受 Anki 启发的间隔重复平台。"
+  },
+  "home": {
+    "welcome": "欢迎回来！",
+    "cta": "开始复习"
+  }
+}
