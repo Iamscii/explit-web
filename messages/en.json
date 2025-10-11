@@ -30,6 +30,24 @@
       "zh": "中文"
     }
   },
+  "authDialog": {
+    "providers": {
+      "google": "Continue with Google",
+      "github": "Continue with GitHub"
+    },
+    "login": {
+      "title": "Welcome back",
+      "description": "Choose one of your connected providers to access Explit.",
+      "switchPrompt": "New to Explit?",
+      "switchAction": "Create an account"
+    },
+    "register": {
+      "title": "Create your account",
+      "description": "Pick a provider to sign up quickly and start studying.",
+      "switchPrompt": "Already have an account?",
+      "switchAction": "Sign in"
+    }
+  },
   "aiLab": {
     "badge": "Playground",
     "title": "AI Lab",

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 
 import { useTranslations } from "next-intl"
-import { signIn, signOut, useSession } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
 import { MenuIcon } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import useLoginDialog from "@/hooks/dialog/use-login-dialog"
+import useRegisterDialog from "@/hooks/dialog/use-register-dialog"
 
 const navigationLinks = [
   { href: "/", key: "home" },
@@ -45,6 +47,8 @@ export const Navbar = () => {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const openLoginDialog = useLoginDialog((state) => state.onOpen)
+  const openRegisterDialog = useRegisterDialog((state) => state.onOpen)
 
   const isLoadingSession = status === "loading"
   const displayName =
@@ -69,17 +73,6 @@ export const Navbar = () => {
   const handleNavigate = (href: string) => {
     router.push(href)
     setIsMobileOpen(false)
-  }
-
-  const handleSignIn = (opts?: {
-    screenHint?: string
-    callbackUrl?: string
-  }) => {
-    const { screenHint, callbackUrl } = opts ?? {}
-    const authorizationParams =
-      screenHint !== undefined ? { screen_hint: screenHint } : undefined
-
-    void signIn(undefined, callbackUrl ? { callbackUrl } : undefined, authorizationParams)
   }
 
   const handleSignOut = () => {
@@ -162,13 +155,13 @@ export const Navbar = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleSignIn()}
+                onClick={() => openLoginDialog()}
               >
                 {t("auth.signIn")}
               </Button>
               <Button
                 size="sm"
-                onClick={() => handleSignIn({ screenHint: "signup", callbackUrl: "/dashboard" })}
+                onClick={() => openRegisterDialog()}
               >
                 {t("auth.register")}
               </Button>
@@ -235,7 +228,7 @@ export const Navbar = () => {
                     <Button
                       onClick={() => {
                         setIsMobileOpen(false)
-                        handleSignIn({ screenHint: "signup", callbackUrl: "/dashboard" })
+                        openRegisterDialog()
                       }}
                     >
                       {t("auth.register")}
@@ -244,7 +237,7 @@ export const Navbar = () => {
                       variant="outline"
                       onClick={() => {
                         setIsMobileOpen(false)
-                        handleSignIn()
+                        openLoginDialog()
                       }}
                     >
                       {t("auth.signIn")}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations } from "next-intl"
 import { useForm } from "react-hook-form"
@@ -14,6 +14,7 @@ import type {
   SafeTemplate,
 } from "@/types/data"
 import { CardFace, FieldRole, FieldType, TemplateType } from "@/types/data"
+import useAddTemplateDialog from "@/hooks/dialog/use-add-template-dialog"
 import { useSyncOperations } from "@/hooks/use-sync-operations"
 import { useAppDispatch } from "@/redux/hooks"
 import { setFieldsForTemplate } from "@/redux/slices/fieldSlice"
@@ -27,7 +28,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -495,7 +495,7 @@ const TemplatePreview = ({ heading, title, body, style, error }: TemplatePreview
 }
 
 export const AddTemplateDialog = ({ userId, disabled, onCompleted }: AddTemplateDialogProps) => {
-  const [open, setOpen] = useState(false)
+  const { isOpen, onOpen, onClose } = useAddTemplateDialog()
   const initialPreset = useMemo(() => createPresetDrafts(TemplateType.BASIC), [])
   const [fieldDrafts, setFieldDrafts] = useState<TemplateFieldDraft[]>(initialPreset.fields)
   const [frontPreferenceDrafts, setFrontPreferenceDrafts] = useState<TemplatePreferenceDraft[]>(
@@ -584,9 +584,15 @@ export const AddTemplateDialog = ({ userId, disabled, onCompleted }: AddTemplate
   }, [form, resetState])
 
   const closeDialog = useCallback(() => {
-    setOpen(false)
+    onClose()
     resetForm()
-  }, [resetForm])
+  }, [onClose, resetForm])
+
+  useEffect(() => {
+    if (disabled && isOpen) {
+      closeDialog()
+    }
+  }, [closeDialog, disabled, isOpen])
 
   const applyPresetForType = useCallback(
     (templateType: TemplateType) => {
@@ -846,20 +852,16 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
 
   return (
     <Dialog
-      open={open}
+      open={isOpen && !disabled}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
           closeDialog()
         } else if (!disabled) {
-          setOpen(true)
+          onOpen()
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button disabled={disabled}>{actionT("button")}</Button>
-      </DialogTrigger>
-
-      {open && (
+      {isOpen && !disabled && (
         <DialogContent className="max-h-[90vh] min-w-[1200px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{actionT("title")}</DialogTitle>

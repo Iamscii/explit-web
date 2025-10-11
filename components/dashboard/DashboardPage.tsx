@@ -5,9 +5,9 @@ import { useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { useSession } from "next-auth/react"
 
-import { AddCardDialog } from "@/components/dashboard/AddCardDialog"
-import { AddDeckDialog } from "@/components/dashboard/AddDeckDialog"
-import { AddTemplateDialog } from "@/components/dashboard/AddTemplateDialog"
+import { AddCardDialog } from "@/components/dialog/AddCardDialog"
+import { AddDeckDialog } from "@/components/dialog/AddDeckDialog"
+import { AddTemplateDialog } from "@/components/dialog/AddTemplateDialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,6 +17,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import useAddCardDialog from "@/hooks/dialog/use-add-card-dialog"
+import useAddDeckDialog from "@/hooks/dialog/use-add-deck-dialog"
+import useAddTemplateDialog from "@/hooks/dialog/use-add-template-dialog"
 import { useAppSelector } from "@/redux/hooks"
 import type { SafeTemplate } from "@/types/data"
 
@@ -43,6 +46,9 @@ export const DashboardPage = () => {
   const [feedback, setFeedback] = useState<DashboardFeedback | null>(null)
   const userId = session?.user?.id ?? null
   const isAuthenticated = Boolean(userId)
+  const addDeckDialog = useAddDeckDialog()
+  const addTemplateDialog = useAddTemplateDialog()
+  const addCardDialog = useAddCardDialog()
 
   useEffect(() => {
     if (!feedback) {
@@ -95,6 +101,13 @@ export const DashboardPage = () => {
             <CardDescription>{dashboardT("actions.decks.description")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            <Button
+              type="button"
+              disabled={!isAuthenticated}
+              onClick={addDeckDialog.onOpen}
+            >
+              {dashboardT("actions.decks.button")}
+            </Button>
             <AddDeckDialog
               userId={userId}
               existingDecks={decks}
@@ -110,6 +123,13 @@ export const DashboardPage = () => {
             <CardDescription>{dashboardT("actions.templates.description")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            <Button
+              type="button"
+              disabled={!isAuthenticated}
+              onClick={addTemplateDialog.onOpen}
+            >
+              {dashboardT("actions.templates.button")}
+            </Button>
             <AddTemplateDialog
               userId={userId}
               disabled={!isAuthenticated}
@@ -134,6 +154,13 @@ export const DashboardPage = () => {
                 {dashboardT("actions.cards.noTemplates")}
               </p>
             )}
+            <Button
+              type="button"
+              disabled={!isAuthenticated}
+              onClick={addCardDialog.onOpen}
+            >
+              {dashboardT("actions.cards.button")}
+            </Button>
             <AddCardDialog
               userId={userId}
               templates={templates}

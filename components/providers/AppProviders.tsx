@@ -4,8 +4,10 @@ import { useEffect, useMemo } from "react"
 import { Provider } from "react-redux"
 
 import { NextIntlClientProvider } from "next-intl"
-import { SessionProvider } from "next-auth/react"
+import { SessionProvider, useSession } from "next-auth/react"
 
+import LoginDialog from "@/components/dialog/LoginDialog"
+import RegisterDialog from "@/components/dialog/RegisterDialog"
 import useAutoSync from "@/hooks/use-auto-sync"
 import useSyncQueue from "@/hooks/use-sync-queue"
 import { makeStore } from "@/redux/store"
@@ -26,6 +28,8 @@ export function AppProviders({ locale, messages, children }: AppProvidersProps) 
       <Provider store={store}>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone={DEFAULT_TIME_ZONE}>
           <SyncRuntime />
+          <LoginDialog />
+          <RegisterDialog />
           {children}
         </NextIntlClientProvider>
       </Provider>
@@ -34,13 +38,17 @@ export function AppProviders({ locale, messages, children }: AppProvidersProps) 
 }
 
 const SyncRuntime = () => {
+  const { status } = useSession()
   const { syncNow } = useSyncQueue()
 
-  useAutoSync()
+  const isAuthenticated = status === "authenticated"
+
+  useAutoSync({ enabled: isAuthenticated })
 
   useEffect(() => {
+    if (!isAuthenticated) return
     void syncNow({ categories: ["hot", "warm", "cold"], reason: "bootstrap" })
-  }, [syncNow])
+  }, [isAuthenticated, syncNow])
 
   return null
 }

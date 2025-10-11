@@ -9,7 +9,10 @@ This guide gives downstream AI agents the context they need to work effectively 
 - **Styling**: Tailwind CSS + shadcn/ui. Reuse existing component primitives under `components/ui`.
 - **Data layer**: Prisma (`lib/prisma.ts`) connected to MongoDB, plus a Dexie IndexedDB cache (`lib/db-dexie.ts`) for offline-first study data covering cards, decks, templates, fields, field preferences, user progress, and user preferences.
 - **Auth**: next-auth configured with the Prisma adapter in `lib/auth.ts`, currently wired for GitHub and Google OAuth. Session strategy is JWT; `session.user.id` is guaranteed via callbacks (see `types/next-auth.d.ts`).
+  - Client dialogs (auth and dashboard creation flows) live under `components/dialog/` and expose Zustand stores in `hooks/dialog/` (e.g., `use-login-dialog.ts`, `use-add-card-dialog.ts`) so any page can control open/close state.
+  - `events.createUser` triggers `lib/auth/user-provisioning.ts` to seed default decks, templates, user preferences, and update-log metadata immediately after a new account is persisted. Provisioning retries once with an extended transaction timeout to dodge Prisma `P2028` (interactive transaction timeout) against Atlas.
 - **Sync engine**: Dexie stores queue pending ops + metadata. `lib/sync/manager.ts` orchestrates POST `/api/sync` requests, applies responses transactionally, and exposes queue helpers.
+  - Auto-sync (see `hooks/use-auto-sync.ts`) is only enabled once the user session is authenticated to prevent anonymous clients from hammering the stubbed `/api/sync` endpoint.
 - **State management**: Redux Toolkit store defined in `redux/store.ts` with slices for user, deck, card, template, field, field preference, study, study session, user card progress, user preferences, and sync state. Serializable checks are disabled because Dexie objects are non-serializable.
 - **Internationalization**: next-intl. Messages live under `messages/{locale}.json`. Root layout reads `NEXT_LOCALE` cookie to choose the bundle.
   - `AppProviders` now sets `NextIntlClientProvider` with a default time zone (configurable via `NEXT_PUBLIC_DEFAULT_TIME_ZONE`, defaulting to `UTC`) to avoid environment fallbacks during hydration.
@@ -24,7 +27,9 @@ This guide gives downstream AI agents the context they need to work effectively 
 | `app/` | Next.js routes. `layout.tsx` wires global providers. `page.tsx` renders a localized hero component. |
 | `components/home/HomeHero.tsx` | Client component using translations + shadcn button primitives. |
 | `components/card-renderer/CardRenderer.tsx` | Client component that injects CSS and replaces template placeholders with card field values. |
+| `components/dialog/` | Shared dialog components (auth, deck/card/template creation) driven by Zustand stores in `hooks/dialog/`. |
 | `redux/` | Store, slices, and hooks for RTK. `studySlice` consumes the shared sync manager; `syncSlice` tracks queue/cursor state while feature-specific slices (cards, decks, templates, fields, field preferences, study session, user card progress, user preferences) expose normalized selectors. |
+| `hooks/dialog/` | Zustand stores exposing `onOpen`/`onClose` helpers for each dialog so pages can trigger modals without prop drilling. |
 | `lib/` | Shared infrastructure (Prisma singleton, Dexie instance, sync manager + types, auth config, serialization helpers). |
 | `lib/ai/` | Model catalog + registry/adapters for OpenRouter and FAL. Add new models in `model-catalog.ts` (use `upstreamId` for provider identifiers, and declare `options.parameters` for dynamic inputs). |
 | `lib/storage/s3.ts` | Memoized S3 client factory and helpers for uploading generated assets. |

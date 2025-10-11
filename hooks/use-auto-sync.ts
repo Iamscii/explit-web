@@ -11,22 +11,30 @@ const DEFAULT_WARM_INTERVAL = 5 * 60_000
 export interface AutoSyncOptions {
   hotInterval?: number
   warmInterval?: number
+  enabled?: boolean
 }
 
 export const useAutoSync = (options: AutoSyncOptions = {}) => {
   const { syncNow } = useSyncQueue()
   const hotInterval = options.hotInterval ?? DEFAULT_HOT_INTERVAL
   const warmInterval = options.warmInterval ?? DEFAULT_WARM_INTERVAL
+  const enabled = options.enabled ?? true
   const visibilityRef = useRef(false)
 
   const runSync = useCallback(
     (syncOptions: SyncExecutionOptions) => {
+      if (!enabled) return
       void syncNow(syncOptions)
     },
-    [syncNow],
+    [enabled, syncNow],
   )
 
   useEffect(() => {
+    if (!enabled) {
+      visibilityRef.current = false
+      return
+    }
+
     const syncHot = () => runSync({ categories: ["hot"], reason: "hot-interval" })
     const syncWarm = () => runSync({ categories: ["hot", "warm"], reason: "warm-interval" })
 
@@ -37,9 +45,14 @@ export const useAutoSync = (options: AutoSyncOptions = {}) => {
       clearInterval(hotTimer)
       clearInterval(warmTimer)
     }
-  }, [hotInterval, warmInterval, runSync])
+  }, [enabled, hotInterval, warmInterval, runSync])
 
   useEffect(() => {
+    if (!enabled) {
+      visibilityRef.current = false
+      return
+    }
+
     const handleOnline = () => runSync({ categories: ["hot", "warm"], reason: "network-online" })
     const handleVisibility = () => {
       const isVisible = document.visibilityState === "visible"
@@ -58,7 +71,7 @@ export const useAutoSync = (options: AutoSyncOptions = {}) => {
       window.removeEventListener("online", handleOnline)
       document.removeEventListener("visibilitychange", handleVisibility)
     }
-  }, [runSync])
+  }, [enabled, runSync])
 }
 
 export default useAutoSync

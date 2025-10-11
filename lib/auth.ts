@@ -5,6 +5,7 @@ import GithubProvider from "next-auth/providers/github"
 import GoogleProvider from "next-auth/providers/google"
 
 import prisma from "@/lib/prisma"
+import { provisionUserResources } from "@/lib/auth/user-provisioning"
 
 const githubClientId = process.env.GITHUB_ID ?? ""
 const githubClientSecret = process.env.GITHUB_SECRET ?? ""
@@ -40,6 +41,11 @@ export const authOptions: NextAuthOptions = {
       }
 
       return token
+    },
+  },
+  events: {
+    async createUser(message) {
+      await provisionUserResources(message.user.id)
     },
   },
 }

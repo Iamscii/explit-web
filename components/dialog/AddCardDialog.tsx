@@ -1,20 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations } from "next-intl"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import type {
-  SafeCard,
-  SafeDeck,
-  SafeField,
-  SafeFieldPreference,
-  SafeTemplate,
-} from "@/types/data"
-import { CardFace, FieldType } from "@/types/data"
 import { useSyncOperations } from "@/hooks/use-sync-operations"
+import useAddCardDialog from "@/hooks/dialog/use-add-card-dialog"
 import { useAppDispatch, useAppSelector } from "@/redux/hooks"
 import { upsertCard } from "@/redux/slices/cardSlice"
 import { Button } from "@/components/ui/button"
@@ -25,7 +18,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -45,18 +37,23 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-
-type CardFormValues = {
-  deckId: string
-  templateId: string
-  fieldValues: Record<string, string>
-}
+import type {
+  SafeCard,
+  SafeDeck,
+  SafeField,
+  SafeFieldPreference,
+  SafeTemplate,
+} from "@/types/data"
+import { CardFace, FieldType } from "@/types/data"
 
 const cardSchema = z.object({
   deckId: z.string().trim().min(1),
   templateId: z.string().trim().min(1),
-  fieldValues: z.record(z.string()),
+  fieldValues: z.record(z.string(), z.string()),
 })
+
+type CardFormValues = z.infer<typeof cardSchema>
+type FieldValueKey = `fieldValues.${string}`
 
 interface TemplateFieldMeta {
   field: SafeField
@@ -157,8 +154,7 @@ export const AddCardDialog = ({
   disabled,
   onCompleted,
 }: AddCardDialogProps) => {
-  const [open, setOpen] = useState(false)
-
+  const { onOpen, onClose, isOpen } = useAddCardDialog()
   const { enqueueCardUpsert } = useSyncOperations()
   const dispatch = useAppDispatch()
 
@@ -197,7 +193,13 @@ export const AddCardDialog = ({
         fieldPreferenceState.byId,
         fieldPreferenceState.idsByTemplate,
       ),
-    [watchTemplateId, fieldState.byId, fieldState.idsByTemplate, fieldPreferenceState.byId, fieldPreferenceState.idsByTemplate],
+    [
+      watchTemplateId,
+      fieldState.byId,
+      fieldState.idsByTemplate,
+      fieldPreferenceState.byId,
+      fieldPreferenceState.idsByTemplate,
+    ],
   )
 
   useEffect(() => {
@@ -240,9 +242,15 @@ export const AddCardDialog = ({
   }, [deckOptions, form, templateOptions])
 
   const closeDialog = useCallback(() => {
-    setOpen(false)
+    onClose()
     resetForm()
-  }, [resetForm])
+  }, [onClose, resetForm])
+
+  useEffect(() => {
+    if (disabled && isOpen) {
+      closeDialog()
+    }
+  }, [closeDialog, disabled, isOpen])
 
   const getErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : formT("unknownError")
@@ -267,7 +275,7 @@ export const AddCardDialog = ({
       const raw = values.fieldValues[fieldId] ?? ""
       if (!raw.trim()) {
         hasEmptyField = true
-        form.setError(`fieldValues.${fieldId}` as const, {
+        form.setError(`fieldValues.${fieldId}` as FieldValueKey, {
           type: "manual",
           message: formT("errors.fieldValueRequired"),
         })
@@ -336,20 +344,16 @@ export const AddCardDialog = ({
 
   return (
     <Dialog
-      open={open}
+      open={isOpen && !disabled}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
           closeDialog()
         } else if (!disabled) {
-          setOpen(true)
+          onOpen()
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button disabled={disabled}>{actionT("button")}</Button>
-      </DialogTrigger>
-
-      {open && (
+      {isOpen && !disabled && (
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{actionT("title")}</DialogTitle>
@@ -446,7 +450,7 @@ export const AddCardDialog = ({
                 </div>
 
                 {!templateGroups.orderedIds.length ? (
-                  <p className="text-muted-foreground text-sm">
+                  <p className="text-sm text-muted-foreground">
                     {formT("errors.templateFieldsMissing")}
                   </p>
                 ) : (
@@ -456,7 +460,7 @@ export const AddCardDialog = ({
                         <h3 className="text-base font-semibold">{section.title}</h3>
                         <div className="space-y-4">
                           {section.items.map(({ field: templateField }) => {
-                            const fieldPath = `fieldValues.${templateField.id}` as const
+                            const fieldPath = `fieldValues.${templateField.id}` as FieldValueKey
                             const InputComponent = resolveInputComponent(templateField.type)
 
                             return (
@@ -468,7 +472,7 @@ export const AddCardDialog = ({
                                   <FormItem>
                                     <FormLabel>
                                       {templateField.name}
-                                      <span className="text-muted-foreground ml-2 text-xs uppercase tracking-wide">
+                                      <span className="ml-2 text-xs uppercase tracking-wide text-muted-foreground">
                                         {formT(`fieldTypes.${templateField.type}`)}
                                       </span>
                                     </FormLabel>

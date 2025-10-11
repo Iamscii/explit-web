@@ -1,16 +1,16 @@
 'use client'
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations } from "next-intl"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import type { SafeDeck } from "@/types/data"
-import { DeckType } from "@/types/data"
+import useAddDeckDialog from "@/hooks/dialog/use-add-deck-dialog"
 import { useSyncOperations } from "@/hooks/use-sync-operations"
 import { useAppDispatch } from "@/redux/hooks"
 import { upsertDeck } from "@/redux/slices/deckSlice"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -30,7 +29,6 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -38,21 +36,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
-
-export type DeckFormValues = z.infer<typeof deckSchema>
+import { Textarea } from "@/components/ui/textarea"
+import type { SafeDeck } from "@/types/data"
+import { DeckType } from "@/types/data"
 
 const deckSchema = z.object({
   name: z.string().trim().min(1),
-  description: z
-    .string()
-    .trim()
-    .optional(),
-  parentId: z
-    .string()
-    .trim()
-    .optional(),
+  description: z.string().trim().optional(),
+  parentId: z.string().trim().optional(),
 })
+
+export type DeckFormValues = z.infer<typeof deckSchema>
 
 export interface AddDeckDialogProps {
   userId?: string | null
@@ -69,11 +63,16 @@ export const AddDeckDialog = ({
   disabled,
   onCompleted,
 }: AddDeckDialogProps) => {
-  const [open, setOpen] = useState(false)
+  const { isOpen, onClose, onOpen } = useAddDeckDialog()
   const { enqueueDeckUpsert } = useSyncOperations()
   const dispatch = useAppDispatch()
   const formT = useTranslations("dashboard.form")
   const actionT = useTranslations("dashboard.actions.decks")
+
+  const sortedDecks = useMemo(
+    () => [...existingDecks].sort((a, b) => a.name.localeCompare(b.name)),
+    [existingDecks],
+  )
 
   const form = useForm<DeckFormValues>({
     resolver: zodResolver(deckSchema),
@@ -84,11 +83,6 @@ export const AddDeckDialog = ({
     },
   })
 
-  const sortedDecks = useMemo(
-    () => [...existingDecks].sort((a, b) => a.name.localeCompare(b.name)),
-    [existingDecks],
-  )
-
   const resetForm = useCallback(() => {
     form.reset({
       name: "",
@@ -98,9 +92,15 @@ export const AddDeckDialog = ({
   }, [form])
 
   const closeDialog = useCallback(() => {
-    setOpen(false)
+    onClose()
     resetForm()
-  }, [resetForm])
+  }, [onClose, resetForm])
+
+  useEffect(() => {
+    if (disabled && isOpen) {
+      closeDialog()
+    }
+  }, [closeDialog, disabled, isOpen])
 
   const getErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : formT("unknownError")
@@ -116,7 +116,8 @@ export const AddDeckDialog = ({
       id: crypto.randomUUID(),
       name: values.name,
       type: DeckType.USER,
-      description: values.description && values.description.length > 0 ? values.description : null,
+      description:
+        values.description && values.description.length > 0 ? values.description : null,
       parentId:
         values.parentId && values.parentId !== NO_PARENT_VALUE && values.parentId.length > 0
           ? values.parentId
@@ -147,19 +148,16 @@ export const AddDeckDialog = ({
 
   return (
     <Dialog
-      open={open}
+      open={isOpen && !disabled}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
           closeDialog()
         } else if (!disabled) {
-          setOpen(true)
+          onOpen()
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button disabled={disabled}>{actionT("button")}</Button>
-      </DialogTrigger>
-      {open && (
+      {isOpen && !disabled && (
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{actionT("title")}</DialogTitle>
@@ -194,10 +192,7 @@ export const AddDeckDialog = ({
                   <FormItem>
                     <FormLabel>{formT("labels.description")}</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder={formT("placeholders.description")}
-                        {...field}
-                      />
+                      <Textarea placeholder={formT("placeholders.description")} {...field} />
                     </FormControl>
                     <FormDescription>{formT("descriptions.deckDescription")}</FormDescription>
                     <FormMessage />
@@ -240,11 +235,7 @@ export const AddDeckDialog = ({
               />
 
               <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => closeDialog()}
-                >
+                <Button type="button" variant="outline" onClick={() => closeDialog()}>
                   {formT("cancel")}
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
