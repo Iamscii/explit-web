@@ -1,8 +1,15 @@
 import { configureStore } from "@reduxjs/toolkit"
 
+import cardReducer from "./slices/cardSlice"
 import deckReducer from "./slices/deckSlice"
+import fieldPreferenceReducer from "./slices/fieldPreferenceSlice"
+import fieldReducer from "./slices/fieldSlice"
 import studyReducer from "./slices/studySlice"
+import studySessionReducer from "./slices/studySessionSlice"
 import syncReducer from "./slices/syncSlice"
+import templateReducer from "./slices/templateSlice"
+import userCardProgressReducer from "./slices/userCardProgressSlice"
+import userPreferencesReducer from "./slices/userPreferencesSlice"
 import userReducer from "./slices/userSlice"
 
 export const makeStore = () =>
@@ -10,7 +17,14 @@ export const makeStore = () =>
     reducer: {
       user: userReducer,
       deck: deckReducer,
+      card: cardReducer,
+      template: templateReducer,
+      field: fieldReducer,
+      fieldPreference: fieldPreferenceReducer,
+      userCardProgress: userCardProgressReducer,
+      userPreferences: userPreferencesReducer,
       study: studyReducer,
+      studySession: studySessionReducer,
       sync: syncReducer,
     },
     middleware: (getDefaultMiddleware) =>

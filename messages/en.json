@@ -7,6 +7,29 @@
     "welcome": "Welcome back!",
     "cta": "Start studying"
   },
+  "nav": {
+    "brand": "Explit Study",
+    "account": "Account",
+    "menu": {
+      "open": "Open navigation"
+    },
+    "links": {
+      "home": "Home",
+      "aiLab": "AI Lab",
+      "dashboard": "Dashboard"
+    },
+    "auth": {
+      "signIn": "Log in",
+      "register": "Sign up",
+      "signOut": "Log out"
+    },
+    "language": {
+      "label": "Language",
+      "ariaLabel": "Toggle language",
+      "en": "EN",
+      "zh": "中文"
+    }
+  },
   "aiLab": {
     "badge": "Playground",
     "title": "AI Lab",
@@ -128,6 +151,173 @@
       "boolean": "Boolean",
       "array": "Array",
       "object": "Object"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Create new study resources and queue them for sync.",
+    "alerts": {
+      "unauthenticated": {
+        "title": "Sign in required",
+        "body": "Sign in to create decks, templates, or cards."
+      }
+    },
+    "actions": {
+      "decks": {
+        "title": "Add deck",
+        "description": "Organize related cards with custom decks.",
+        "button": "New deck",
+        "success": "Deck added to the sync queue.",
+        "error": "Unable to add deck: {message}"
+      },
+      "templates": {
+        "title": "Add template",
+        "description": "Define layouts that cards can reuse.",
+        "button": "New template",
+        "success": "Template added to the sync queue.",
+        "error": "Unable to add template: {message}"
+      },
+      "cards": {
+        "title": "Add card",
+        "description": "Capture new prompts using an existing template.",
+        "button": "New card",
+        "success": "Card added to the sync queue.",
+        "error": "Unable to add card: {message}",
+        "noTemplates": "Create a template first so cards can reference it.",
+        "noDecks": "Create a deck first so cards have a home."
+      }
+    },
+    "form": {
+      "sections": {
+        "fields": "Field configuration",
+        "preview": "Live preview"
+      },
+      "fields": {
+        "add": "Add field",
+        "remove": "Remove field",
+        "moveUp": "Move field up",
+        "moveDown": "Move field down",
+        "applyPreset": "Use recommended fields",
+        "presetHint": "Switching template types will load a recommended field layout unless you've made changes.",
+        "customizedHint": "You have customized the field list. Apply the preset to reset it."
+      },
+      "labels": {
+        "name": "Name",
+        "description": "Description",
+        "parentDeck": "Parent deck",
+        "deck": "Deck",
+        "template": "Template",
+        "templateType": "Template type",
+        "fieldValues": "Field values",
+        "fieldName": "Field name",
+        "fieldType": "Field type",
+        "cardFace": "Card face",
+        "fieldRole": "Field role",
+        "settings": "Settings JSON",
+        "styleJson": "Style JSON"
+      },
+      "placeholders": {
+        "name": "My spaced repetition deck",
+        "description": "Describe how this deck will be used.",
+        "parentDeck": "Choose a parent deck",
+        "deck": "Select a deck",
+        "templateName": "Basic template",
+        "templateDescription": "Explain how cards should render.",
+        "templateType": "Select template type",
+        "template": "Select a template",
+        "fieldName": "Front",
+        "fieldValue": "Enter content for this field",
+        "settings": "Optional JSON overrides",
+      "styleJson": "Optional style JSON"
+      },
+      "preferences": {
+        "add": "Add slot",
+        "empty": "Add fields first to configure slots.",
+        "emptySlots": "No slots yet—add one to start building this side.",
+        "field": "Field",
+        "role": "Role",
+        "missingField": "Field removed"
+      },
+      "preview": {
+        "title": "Preview title",
+        "body": "Preview body copy"
+      },
+      "descriptions": {
+        "deckDescription": "Optional. Help future you recall what belongs here.",
+        "parentDeck": "Nest this deck under an existing one.",
+        "deck": "Cards will sync under this deck once the server applies the queue.",
+        "templateDescription": "Optional notes for collaborators.",
+        "templateType": "Choose how this template behaves during study.",
+        "settings": "Paste valid JSON to override template defaults.",
+        "styleJson": "Provide JSON representing CSS tokens or theme data.",
+        "template": "Pick the template that defines the card layout.",
+        "fieldValues": "Enter one field per line. The order should match the template field order."
+      },
+      "templateTypes": {
+        "BASIC": "Basic",
+        "CLOZE": "Cloze",
+        "CHOICE": "Multiple choice",
+        "SPELLING": "Spelling",
+        "READING": "Reading"
+      },
+      "fieldTypes": {
+        "TEXT": "Text",
+        "RICH_TEXT": "Rich text",
+        "CHOICE": "Choices",
+        "IMAGE": "Image",
+        "AUDIO": "Audio",
+        "VIDEO": "Video"
+      },
+      "cardFaces": {
+        "FRONT": "Front",
+        "BACK": "Back",
+        "UNCATEGORIZED": "Shared"
+      },
+      "fieldRoles": {
+        "none": "No specific role",
+        "QUESTION": "Question",
+        "ANSWER": "Answer",
+        "OPTION": "Option",
+        "HINT": "Hint",
+        "PASSAGE": "Passage",
+        "BLANK": "Blank",
+        "SPELLING_PROMPT": "Spelling prompt",
+        "AUDIO_PROMPT": "Audio prompt",
+        "IMAGE_PROMPT": "Image prompt",
+        "EXPLANATION": "Explanation"
+      },
+      "fieldSections": {
+        "front": "Front of card",
+        "back": "Back of card",
+        "uncategorized": "Shared across faces"
+      },
+      "noParent": "No parent deck",
+      "submit": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "close": "Close",
+      "notSignedIn": "Sign in to submit this form.",
+      "unknownError": "Unknown error",
+      "errors": {
+        "settings": "Provide valid JSON or leave the field blank.",
+        "fieldsRequired": "Add at least one field before saving the template.",
+        "fieldNames": "Every field must have a name.",
+        "style": "Provide valid JSON or leave the style field blank.",
+        "templateFieldsMissing": "This template does not expose any fields yet.",
+        "fieldValueRequired": "Enter a value for this field.",
+        "noDecks": "Create a deck before adding cards.",
+        "fieldValues": "Add at least one field value.",
+        "stylePreview": "The preview fell back to defaults because the style JSON is invalid.",
+        "preferencesRequired": "Add at least one front or back slot before saving."
+      },
+      "hint": "Submissions are queued locally and will sync when your connection is online."
+    },
+    "feedback": {
+      "title": {
+        "success": "Success",
+        "error": "Something went wrong"
+      },
+      "dismiss": "Dismiss"
     }
   }
 }

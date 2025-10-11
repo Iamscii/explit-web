@@ -10,6 +10,8 @@ import useAutoSync from "@/hooks/use-auto-sync"
 import useSyncQueue from "@/hooks/use-sync-queue"
 import { makeStore } from "@/redux/store"
 
+const DEFAULT_TIME_ZONE = process.env.NEXT_PUBLIC_DEFAULT_TIME_ZONE ?? "UTC"
+
 interface AppProvidersProps {
   locale: string
   messages: Record<string, unknown>
@@ -22,7 +24,7 @@ export function AppProviders({ locale, messages, children }: AppProvidersProps) 
   return (
     <SessionProvider>
       <Provider store={store}>
-        <NextIntlClientProvider locale={locale} messages={messages}>
+        <NextIntlClientProvider locale={locale} messages={messages} timeZone={DEFAULT_TIME_ZONE}>
           <SyncRuntime />
           {children}
         </NextIntlClientProvider>

@@ -7,6 +7,29 @@
     "welcome": "欢迎回来！",
     "cta": "开始复习"
   },
+  "nav": {
+    "brand": "Explit 学习",
+    "account": "账号",
+    "menu": {
+      "open": "打开导航"
+    },
+    "links": {
+      "home": "首页",
+      "aiLab": "AI 实验室",
+      "dashboard": "仪表盘"
+    },
+    "auth": {
+      "signIn": "登录",
+      "register": "注册",
+      "signOut": "退出登录"
+    },
+    "language": {
+      "label": "语言",
+      "ariaLabel": "切换界面语言",
+      "en": "EN",
+      "zh": "中文"
+    }
+  },
   "aiLab": {
     "badge": "Playground",
     "title": "AI 实验室",
@@ -128,6 +151,173 @@
       "boolean": "布尔值",
       "array": "数组",
       "object": "对象"
+    }
+  },
+  "dashboard": {
+    "title": "控制台",
+    "description": "在一个界面中创建新的学习资源并排入同步队列。",
+    "alerts": {
+      "unauthenticated": {
+        "title": "请先登录",
+        "body": "登录后即可创建卡组、模板或卡片。"
+      }
+    },
+    "actions": {
+      "decks": {
+        "title": "新建卡组",
+        "description": "通过自定义卡组整理相关卡片。",
+        "button": "添加卡组",
+        "success": "卡组已加入同步队列。",
+        "error": "无法创建卡组：{message}"
+      },
+      "templates": {
+        "title": "新建模板",
+        "description": "定义卡片可以复用的布局。",
+        "button": "添加模板",
+        "success": "模板已加入同步队列。",
+        "error": "无法创建模板：{message}"
+      },
+      "cards": {
+        "title": "新建卡片",
+        "description": "基于已有模板快速添加新的学习卡片。",
+        "button": "添加卡片",
+        "success": "卡片已加入同步队列。",
+        "error": "无法创建卡片：{message}",
+        "noTemplates": "请先创建模板，再为其添加卡片。",
+        "noDecks": "请先创建卡组，让卡片有归属。"
+      }
+    },
+    "form": {
+      "sections": {
+        "fields": "字段配置",
+        "preview": "实时预览"
+      },
+      "fields": {
+        "add": "添加字段",
+        "remove": "删除字段",
+        "moveUp": "上移字段",
+        "moveDown": "下移字段",
+        "applyPreset": "使用推荐字段",
+        "presetHint": "切换模板类型时，如果尚未修改字段列表，会自动载入推荐字段。",
+        "customizedHint": "你已修改字段列表，如需恢复请应用推荐字段。"
+      },
+      "labels": {
+        "name": "名称",
+        "description": "描述",
+        "parentDeck": "父级卡组",
+        "deck": "所属卡组",
+        "template": "模板",
+        "templateType": "模板类型",
+        "fieldValues": "字段内容",
+        "fieldName": "字段名称",
+        "fieldType": "字段类型",
+        "cardFace": "卡片面",
+        "fieldRole": "字段角色",
+        "settings": "设置 JSON",
+        "styleJson": "样式 JSON"
+      },
+      "placeholders": {
+        "name": "我的间隔重复卡组",
+        "description": "说明该卡组的用途。",
+        "parentDeck": "选择父级卡组",
+        "deck": "选择卡组",
+        "templateName": "基础模板",
+        "templateDescription": "描述模板的展示方式。",
+        "templateType": "选择模板类型",
+        "template": "选择模板",
+        "fieldName": "正面内容",
+        "fieldValue": "填写该字段的内容",
+        "settings": "可选：填写 JSON 配置",
+      "styleJson": "可选：填写样式 JSON"
+      },
+      "preferences": {
+        "add": "添加展示位",
+        "empty": "请先创建字段，再配置展示位。",
+        "emptySlots": "当前没有展示位，请添加一个开始配置。",
+        "field": "字段",
+        "role": "角色",
+        "missingField": "字段已被移除"
+      },
+      "preview": {
+        "title": "预览标题",
+        "body": "预览正文"
+      },
+      "descriptions": {
+        "deckDescription": "可选，用于帮助日后快速识别。",
+        "parentDeck": "可将当前卡组归类到已存在的父级卡组。",
+        "deck": "同步后卡片会归属到该卡组。",
+        "templateDescription": "可选，方便团队成员了解模板用途。",
+        "templateType": "决定模板在学习流程中的行为。",
+        "settings": "可粘贴合法 JSON 以覆盖默认设置。",
+        "styleJson": "可填写 JSON，用于描述 CSS 变量或主题配置。",
+        "template": "为卡片选择其展示结构所依赖的模板。",
+        "fieldValues": "每行填写一个字段，顺序需与模板字段一致。"
+      },
+      "templateTypes": {
+        "BASIC": "基础",
+        "CLOZE": "填空",
+        "CHOICE": "选择题",
+        "SPELLING": "拼写",
+        "READING": "朗读"
+      },
+      "fieldTypes": {
+        "TEXT": "文本",
+        "RICH_TEXT": "富文本",
+        "CHOICE": "选项列表",
+        "IMAGE": "图片",
+        "AUDIO": "音频",
+        "VIDEO": "视频"
+      },
+      "cardFaces": {
+        "FRONT": "卡片正面",
+        "BACK": "卡片背面",
+        "UNCATEGORIZED": "正反面共享"
+      },
+      "fieldRoles": {
+        "none": "不指定角色",
+        "QUESTION": "题干",
+        "ANSWER": "答案",
+        "OPTION": "选项",
+        "HINT": "提示",
+        "PASSAGE": "段落",
+        "BLANK": "填空",
+        "SPELLING_PROMPT": "拼写提示",
+        "AUDIO_PROMPT": "音频提示",
+        "IMAGE_PROMPT": "图片提示",
+        "EXPLANATION": "解析"
+      },
+      "fieldSections": {
+        "front": "正面字段",
+        "back": "背面字段",
+        "uncategorized": "通用字段"
+      },
+      "noParent": "无父级卡组",
+      "submit": "保存",
+      "saving": "保存中…",
+      "cancel": "取消",
+      "close": "关闭",
+      "notSignedIn": "请先登录后再提交表单。",
+      "unknownError": "未知错误",
+      "errors": {
+        "settings": "请填写合法的 JSON，或留空。",
+        "fieldsRequired": "请至少添加一个字段。",
+        "fieldNames": "每个字段都需要名称。",
+        "style": "请填写合法的 JSON，或留空。",
+        "templateFieldsMissing": "该模板尚未配置字段。",
+        "fieldValueRequired": "请填写该字段的内容。",
+        "noDecks": "请先创建卡组后再添加卡片。",
+        "fieldValues": "至少填写一个字段内容。",
+        "stylePreview": "样式 JSON 无法解析，预览已回退为默认样式。",
+        "preferencesRequired": "请至少配置一个正面或背面的展示位。"
+      },
+      "hint": "提交的数据会先写入本地队列，联网后将自动同步。"
+    },
+    "feedback": {
+      "title": {
+        "success": "操作成功",
+        "error": "发生错误"
+      },
+      "dismiss": "关闭提示"
     }
   }
 }

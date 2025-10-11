@@ -4,18 +4,42 @@ import dexieDb, {
   type DexieMetadataRecord,
   type DexiePendingOperation,
 } from "@/lib/db-dexie"
-import { mapSafeCardToDexieRecord, mapSafeProgressToDexieRecord } from "@/lib/sync/mappers"
+import {
+  mapSafeCardToDexieRecord,
+  mapSafeDeckToDexieRecord,
+  mapSafeFieldPreferenceToDexieRecord,
+  mapSafeFieldToDexieRecord,
+  mapSafeProgressToDexieRecord,
+  mapSafeStyleToDexieRecord,
+  mapSafeTemplateToDexieRecord,
+  mapSafeUserPreferencesToDexieRecord,
+} from "@/lib/sync/mappers"
 import type {
   SyncCursorMap,
   SyncExecutionOptions,
   SyncOperationPayload,
   SyncResponsePayload,
 } from "@/lib/sync/types"
-import type { SafeCard, SafeUserCardProgress } from "@/types/data"
+import type {
+  SafeCard,
+  SafeDeck,
+  SafeField,
+  SafeFieldPreference,
+  SafeStyle,
+  SafeTemplate,
+  SafeUserCardProgress,
+  SafeUserPreferences,
+} from "@/types/data"
 
 export interface SyncSnapshot {
   cards: SafeCard[]
+  decks: SafeDeck[]
+  templates: SafeTemplate[]
+  fields: SafeField[]
+  fieldPreferences: SafeFieldPreference[]
+  styles: SafeStyle[]
   progresses: SafeUserCardProgress[]
+  userPreferences: SafeUserPreferences[]
   queueSize: number
   deviceId: string
   cursors: SyncCursorMap
@@ -79,15 +103,41 @@ export const enqueueOperation = async (
   return record
 }
 
-const readDexieSnapshot = async (): Promise<Pick<SyncSnapshot, "cards" | "progresses">> => {
-  const [cardRecords, progressRecords] = await Promise.all([
+const readDexieSnapshot = async (): Promise<
+  Pick<
+    SyncSnapshot,
+    "cards" | "decks" | "templates" | "fields" | "fieldPreferences" | "styles" | "progresses" | "userPreferences"
+  >
+> => {
+  const [
+    cardRecords,
+    deckRecords,
+    templateRecords,
+    fieldRecords,
+    fieldPreferenceRecords,
+    styleRecords,
+    progressRecords,
+    userPreferenceRecords,
+  ] = await Promise.all([
     dexieDb.cards.toArray(),
+    dexieDb.decks.toArray(),
+    dexieDb.templates.toArray(),
+    dexieDb.fields.toArray(),
+    dexieDb.fieldPreferences.toArray(),
+    dexieDb.styles.toArray(),
     dexieDb.progresses.toArray(),
+    dexieDb.userPreferences.toArray(),
   ])
 
   return {
     cards: cardRecords.map((record) => record.payload),
+    decks: deckRecords.map((record) => record.payload),
+    templates: templateRecords.map((record) => record.payload),
+    fields: fieldRecords.map((record) => record.payload),
+    fieldPreferences: fieldPreferenceRecords.map((record) => record.payload),
+    styles: styleRecords.map((record) => record.payload),
     progresses: progressRecords.map((record) => record.payload),
+    userPreferences: userPreferenceRecords.map((record) => record.payload),
   }
 }
 
@@ -129,21 +179,76 @@ export const performSync = async (
   const response = await fetchSync(payload)
 
   const cards = (response.collections.cards ?? []) as SafeCard[]
+  const decks = (response.collections.decks ?? []) as SafeDeck[]
+  const templates = (response.collections.templates ?? []) as SafeTemplate[]
+  const styles = (response.collections.styles ?? []) as SafeStyle[]
+  const fields = (response.collections.fields ?? []) as SafeField[]
+  const fieldPreferences = (response.collections.fieldPreferences ?? []) as SafeFieldPreference[]
   const progresses = (response.collections.progresses ?? []) as SafeUserCardProgress[]
+  const userPreferences = (response.collections.userPreferences ?? []) as SafeUserPreferences[]
+
+  const styleMap = styles.reduce<Record<string, SafeStyle>>((acc, style) => {
+    acc[style.templateId] = style
+    return acc
+  }, {})
+
+  const templatesWithStyles = templates.map((template) => {
+    const style = styleMap[template.id]
+    if (style && !template.style) {
+      return { ...template, style }
+    }
+    return template
+  })
 
   await dexieDb.transaction(
     "rw",
-    dexieDb.cards,
-    dexieDb.progresses,
-    dexieDb.pendingOperations,
-    dexieDb.metadata,
+    [
+      dexieDb.cards,
+      dexieDb.decks,
+      dexieDb.templates,
+      dexieDb.fields,
+      dexieDb.fieldPreferences,
+      dexieDb.styles,
+      dexieDb.progresses,
+      dexieDb.userPreferences,
+      dexieDb.pendingOperations,
+      dexieDb.metadata,
+    ],
     async () => {
       if (cards.length) {
         await dexieDb.cards.bulkPut(cards.map(mapSafeCardToDexieRecord))
       }
 
+      if (decks.length) {
+        await dexieDb.decks.bulkPut(decks.map(mapSafeDeckToDexieRecord))
+      }
+
+      if (templatesWithStyles.length) {
+        await dexieDb.templates.bulkPut(templatesWithStyles.map(mapSafeTemplateToDexieRecord))
+      }
+
+      if (fields.length) {
+        await dexieDb.fields.bulkPut(fields.map(mapSafeFieldToDexieRecord))
+      }
+
+      if (fieldPreferences.length) {
+        await dexieDb.fieldPreferences.bulkPut(
+          fieldPreferences.map(mapSafeFieldPreferenceToDexieRecord),
+        )
+      }
+
+      if (styles.length) {
+        await dexieDb.styles.bulkPut(styles.map(mapSafeStyleToDexieRecord))
+      }
+
       if (progresses.length) {
         await dexieDb.progresses.bulkPut(progresses.map(mapSafeProgressToDexieRecord))
+      }
+
+      if (userPreferences.length) {
+        await dexieDb.userPreferences.bulkPut(
+          userPreferences.map(mapSafeUserPreferencesToDexieRecord),
+        )
       }
 
       if (response.appliedOperationIds.length) {

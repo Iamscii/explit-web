@@ -1,6 +1,14 @@
 export type SyncCategory = "cold" | "warm" | "hot"
 
-export type SyncEntity = "deck" | "card" | "template" | "style" | "progress"
+export type SyncEntity =
+  | "deck"
+  | "card"
+  | "template"
+  | "style"
+  | "field"
+  | "fieldPreference"
+  | "progress"
+  | "userPreference"
 
 export type SyncOperationType = "UPSERT" | "DELETE"
 
@@ -37,7 +45,10 @@ export interface SyncCollectionPayload {
   cards?: unknown[]
   templates?: unknown[]
   styles?: unknown[]
+  fields?: unknown[]
+  fieldPreferences?: unknown[]
   progresses?: unknown[]
+  userPreferences?: unknown[]
 }
 
 export interface SyncResponsePayload {

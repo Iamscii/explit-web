@@ -7,11 +7,13 @@ This guide gives downstream AI agents the context they need to work effectively 
 ## 1. Architecture Snapshot
 - **Framework**: Next.js (App Router) with server components where practical.
 - **Styling**: Tailwind CSS + shadcn/ui. Reuse existing component primitives under `components/ui`.
-- **Data layer**: Prisma (`lib/prisma.ts`) connected to MongoDB, plus a Dexie IndexedDB cache (`lib/db-dexie.ts`) for offline-first study data.
+- **Data layer**: Prisma (`lib/prisma.ts`) connected to MongoDB, plus a Dexie IndexedDB cache (`lib/db-dexie.ts`) for offline-first study data covering cards, decks, templates, fields, field preferences, user progress, and user preferences.
 - **Auth**: next-auth configured with the Prisma adapter in `lib/auth.ts`, currently wired for GitHub and Google OAuth. Session strategy is JWT; `session.user.id` is guaranteed via callbacks (see `types/next-auth.d.ts`).
 - **Sync engine**: Dexie stores queue pending ops + metadata. `lib/sync/manager.ts` orchestrates POST `/api/sync` requests, applies responses transactionally, and exposes queue helpers.
-- **State management**: Redux Toolkit store defined in `redux/store.ts` with slices for user, deck, study, and sync state. Serializable checks are disabled because Dexie objects are non-serializable.
+- **State management**: Redux Toolkit store defined in `redux/store.ts` with slices for user, deck, card, template, field, field preference, study, study session, user card progress, user preferences, and sync state. Serializable checks are disabled because Dexie objects are non-serializable.
 - **Internationalization**: next-intl. Messages live under `messages/{locale}.json`. Root layout reads `NEXT_LOCALE` cookie to choose the bundle.
+  - `AppProviders` now sets `NextIntlClientProvider` with a default time zone (configurable via `NEXT_PUBLIC_DEFAULT_TIME_ZONE`, defaulting to `UTC`) to avoid environment fallbacks during hydration.
+  - `/app/api/locale/route.ts` stores the locale cookie; the client `LanguageSwitch` component posts here before refreshing the router.
 - **Media uploads**: `/app/api/s3-upload/route.ts` generates pre-signed S3 URLs. All AWS credentials must remain on the server.
 - **Serialization utilities**: `lib/utils/serialization.ts` exposes a recursive `dateToStrings` helper to convert Prisma `Date` fields before sending to the client. Safe DTOs are declared in `types/data.ts`.
 - **AI providers**: `lib/ai` centralizes model adapters for OpenRouter (text) and FAL (image). OpenRouter catalog entries share the `OPENROUTER_TEXT_PARAMETERS` schema (top_p, penalties, tool-calling controls)—extend this list when adding new OpenRouter models so the AI Lab form stays in sync, and set `OPENROUTER_SITE_URL`/`OPENROUTER_SITE_TITLE` env vars to populate the required OpenRouter headers. Vision-language entries also expose an `image_urls` array that the `/api/ai/llm` handler converts into multimodal chat content before invoking OpenRouter. `/app/api/ai/route.ts` uses the registry to execute tasks and can persist generated assets to S3 via `lib/storage/s3.ts`. Image-size presets for FAL models are described in `lib/ai/image-size.ts`, which translates UI aspect ratio picks into provider-compliant `{ width, height }` payloads.
@@ -22,7 +24,7 @@ This guide gives downstream AI agents the context they need to work effectively 
 | `app/` | Next.js routes. `layout.tsx` wires global providers. `page.tsx` renders a localized hero component. |
 | `components/home/HomeHero.tsx` | Client component using translations + shadcn button primitives. |
 | `components/card-renderer/CardRenderer.tsx` | Client component that injects CSS and replaces template placeholders with card field values. |
-| `redux/` | Store, slices, and hooks for RTK. `studySlice` consumes the shared sync manager; `syncSlice` tracks queue/cursor state. |
+| `redux/` | Store, slices, and hooks for RTK. `studySlice` consumes the shared sync manager; `syncSlice` tracks queue/cursor state while feature-specific slices (cards, decks, templates, fields, field preferences, study session, user card progress, user preferences) expose normalized selectors. |
 | `lib/` | Shared infrastructure (Prisma singleton, Dexie instance, sync manager + types, auth config, serialization helpers). |
 | `lib/ai/` | Model catalog + registry/adapters for OpenRouter and FAL. Add new models in `model-catalog.ts` (use `upstreamId` for provider identifiers, and declare `options.parameters` for dynamic inputs). |
 | `lib/storage/s3.ts` | Memoized S3 client factory and helpers for uploading generated assets. |

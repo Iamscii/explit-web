@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 
 import "@/app/globals.css"
 
+import { Navbar } from "@/components/navigation/Navbar"
 import { AppProviders } from "@/components/providers/AppProviders"
 import enMessages from "@/messages/en.json"
 import zhMessages from "@/messages/zh.json"
@@ -42,7 +43,10 @@ export default async function RootLayout({
     <html lang={locale}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppProviders locale={locale} messages={messages}>
-          {children}
+          <div className="flex min-h-screen flex-col bg-background text-foreground">
+            <Navbar />
+            <main className="flex-1">{children}</main>
+          </div>
         </AppProviders>
       </body>
     </html>

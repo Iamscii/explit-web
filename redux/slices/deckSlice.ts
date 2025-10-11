@@ -1,6 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
 
 import type { SafeDeck } from "@/types/data"
+import type { SyncSnapshot } from "@/lib/sync/manager"
+import { syncData } from "@/redux/slices/studySlice"
 
 interface DeckState {
   items: SafeDeck[]
@@ -46,6 +48,22 @@ const deckSlice = createSlice({
         state.error = action.payload.error
       }
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(syncData.pending, (state) => {
+        state.status = "loading"
+      })
+      .addCase(syncData.fulfilled, (state, action) => {
+        const snapshot = action.payload as SyncSnapshot
+        state.items = snapshot.decks
+        state.status = "succeeded"
+        state.error = undefined
+      })
+      .addCase(syncData.rejected, (state, action) => {
+        state.status = "failed"
+        state.error = action.payload ?? action.error.message ?? "Unable to sync decks"
+      })
   },
 })
 
