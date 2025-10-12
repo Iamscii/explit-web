@@ -1,8 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
 
-import type { SyncCursorMap, SyncExecutionOptions } from "@/lib/sync/types"
+import type { SyncCursorMap } from "@/lib/sync/types"
 import type { SyncSnapshot } from "@/lib/sync/manager"
-import { syncData } from "@/redux/slices/studySlice"
+import { syncData, type SyncThunkArgs } from "@/redux/thunks/syncThunks"
 
 type SyncStatus = "idle" | "syncing" | "failed"
 
@@ -44,7 +44,7 @@ const syncSlice = createSlice({
       .addCase(syncData.pending, (state, action) => {
         state.status = "syncing"
         state.error = undefined
-        const options = action.meta.arg as SyncExecutionOptions | undefined
+        const { options } = action.meta.arg as SyncThunkArgs
         state.lastSyncReason = options?.reason
       })
       .addCase(syncData.fulfilled, (state, action) => {

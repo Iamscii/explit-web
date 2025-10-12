@@ -1,8 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
 
 import type { SafeUserCardProgress } from "@/types/data"
+import { syncData } from "@/redux/thunks/syncThunks"
 import type { SyncSnapshot } from "@/lib/sync/manager"
-import { syncData } from "@/redux/slices/studySlice"
 
 type ProgressStatus = "idle" | "loading" | "ready" | "failed"
 
@@ -112,7 +112,6 @@ const userCardProgressSlice = createSlice({
       .addCase(syncData.fulfilled, (state, action) => {
         const snapshot = action.payload as SyncSnapshot
         const progresses = snapshot.progresses
-
         state.byId = progresses.reduce<Record<string, SafeUserCardProgress>>(
           (acc, progress) => {
             acc[progress.id] = progress

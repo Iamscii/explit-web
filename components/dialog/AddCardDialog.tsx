@@ -37,14 +37,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import type {
-  SafeCard,
-  SafeDeck,
-  SafeField,
-  SafeFieldPreference,
-  SafeTemplate,
-} from "@/types/data"
-import { CardFace, FieldType } from "@/types/data"
+import type { SafeCard, SafeDeck, SafeTemplate } from "@/types/data"
+import { CardFace, DeckType, FieldType } from "@prisma/client"
+import {
+  FIELD_GROUP_ORDER,
+  buildTemplateGroups,
+  type TemplateFieldMeta,
+} from "@/lib/templates/groups"
+
 
 const cardSchema = z.object({
   deckId: z.string().trim().min(1),
@@ -55,18 +55,6 @@ const cardSchema = z.object({
 type CardFormValues = z.infer<typeof cardSchema>
 type FieldValueKey = `fieldValues.${string}`
 
-interface TemplateFieldMeta {
-  field: SafeField
-  preference?: SafeFieldPreference
-}
-
-interface TemplateFieldGroups {
-  orderedIds: string[]
-  groups: Record<CardFace, TemplateFieldMeta[]>
-}
-
-const FIELD_GROUP_ORDER: CardFace[] = [CardFace.FRONT, CardFace.BACK, CardFace.UNCATEGORIZED]
-
 export interface AddCardDialogProps {
   userId?: string | null
   templates: SafeTemplate[]
@@ -74,65 +62,6 @@ export interface AddCardDialogProps {
   disabled?: boolean
   onCompleted: (feedback: { type: "success" | "error"; message: string }) => void
 }
-
-const buildTemplateGroups = (
-  templateId: string | undefined,
-  fields: Record<string, SafeField>,
-  idsByTemplate: Record<string, string[]>,
-  preferencesById: Record<string, SafeFieldPreference>,
-  preferencesByTemplate: Record<string, string[]>,
-): TemplateFieldGroups => {
-  if (!templateId) {
-    return {
-      orderedIds: [],
-      groups: {
-        [CardFace.FRONT]: [],
-        [CardFace.BACK]: [],
-        [CardFace.UNCATEGORIZED]: [],
-      },
-    }
-  }
-
-  const fieldIdsForTemplate = idsByTemplate[templateId] ?? []
-  const fieldMap = fieldIdsForTemplate
-    .map((fieldId) => fields[fieldId])
-    .filter((field): field is SafeField => Boolean(field))
-
-  const groups: TemplateFieldGroups["groups"] = {
-    [CardFace.FRONT]: [],
-    [CardFace.BACK]: [],
-    [CardFace.UNCATEGORIZED]: [],
-  }
-
-  const preferenceIds = preferencesByTemplate[templateId] ?? []
-  const orderedFieldIds: string[] = []
-
-  const preferenceEntries = preferenceIds
-    .map((id) => preferencesById[id])
-    .filter((pref): pref is SafeFieldPreference => Boolean(pref))
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-
-  const seenFieldIds = new Set<string>()
-
-  preferenceEntries.forEach((preference) => {
-    const field = fields[preference.fieldId]
-    if (!field || seenFieldIds.has(field.id)) return
-    seenFieldIds.add(field.id)
-    const groupKey = preference.face ?? CardFace.UNCATEGORIZED
-    groups[groupKey].push({ field, preference })
-    orderedFieldIds.push(field.id)
-  })
-
-  fieldMap.forEach((field) => {
-    if (seenFieldIds.has(field.id)) return
-    seenFieldIds.add(field.id)
-    groups[CardFace.UNCATEGORIZED].push({ field })
-    orderedFieldIds.push(field.id)
-  })
-
-  return { orderedIds: orderedFieldIds, groups }
-}
-
 const resolveInputComponent = (fieldType: FieldType) => {
   switch (fieldType) {
     case FieldType.TEXT:
@@ -170,11 +99,47 @@ export const AddCardDialog = ({
     [templates],
   )
 
+  const userPreferences = useAppSelector((state) => state.userPreferences.value)
+  const preferredDeckId = userPreferences?.defaultDeck ?? undefined
+  const preferredTemplateId = userPreferences?.defaultCardTemplate ?? undefined
+
+  const defaultDeckId = useMemo(() => {
+    if (!deckOptions.length) {
+      return ""
+    }
+
+    if (preferredDeckId && deckOptions.some((deck) => deck.id === preferredDeckId)) {
+      return preferredDeckId
+    }
+
+    const allDeck = deckOptions.find((deck) => deck.type === DeckType.ALL)
+    if (allDeck) {
+      return allDeck.id
+    }
+
+    return deckOptions[0]!.id
+  }, [deckOptions, preferredDeckId])
+
+  const defaultTemplateId = useMemo(() => {
+    if (!templateOptions.length) {
+      return ""
+    }
+
+    if (
+      preferredTemplateId &&
+      templateOptions.some((template) => template.id === preferredTemplateId)
+    ) {
+      return preferredTemplateId
+    }
+
+    return templateOptions[0]!.id
+  }, [preferredTemplateId, templateOptions])
+
   const form = useForm<CardFormValues>({
     resolver: zodResolver(cardSchema),
     defaultValues: {
-      deckId: deckOptions[0]?.id ?? "",
-      templateId: templateOptions[0]?.id ?? "",
+      deckId: defaultDeckId,
+      templateId: defaultTemplateId,
       fieldValues: {},
     },
   })
@@ -233,13 +198,36 @@ export const AddCardDialog = ({
   const hasTemplates = templateOptions.length > 0
   const hasDecks = deckOptions.length > 0
 
+  useEffect(() => {
+    if (!isOpen) return
+    if (!deckOptions.length) return
+    const currentDeckId = form.getValues("deckId")
+    const nextDeckId = defaultDeckId
+    const deckIsValid = currentDeckId && deckOptions.some((deck) => deck.id === currentDeckId)
+    if (!deckIsValid) {
+      form.setValue("deckId", nextDeckId, { shouldDirty: false })
+    }
+  }, [deckOptions, defaultDeckId, form, isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (!templateOptions.length) return
+    const currentTemplateId = form.getValues("templateId")
+    const nextTemplateId = defaultTemplateId
+    const templateIsValid =
+      currentTemplateId && templateOptions.some((template) => template.id === currentTemplateId)
+    if (!templateIsValid) {
+      form.setValue("templateId", nextTemplateId, { shouldDirty: false })
+    }
+  }, [defaultTemplateId, form, isOpen, templateOptions])
+
   const resetForm = useCallback(() => {
     form.reset({
-      deckId: deckOptions[0]?.id ?? "",
-      templateId: templateOptions[0]?.id ?? "",
+      deckId: defaultDeckId,
+      templateId: defaultTemplateId,
       fieldValues: {},
     })
-  }, [deckOptions, form, templateOptions])
+  }, [defaultDeckId, defaultTemplateId, form])
 
   const closeDialog = useCallback(() => {
     onClose()
@@ -479,6 +467,7 @@ export const AddCardDialog = ({
                                     <FormControl>
                                       <InputComponent
                                         {...field}
+                                        value={typeof field.value === "string" ? field.value : ""}
                                         rows={InputComponent === Textarea ? 3 : undefined}
                                         placeholder={formT("placeholders.fieldValue")}
                                       />

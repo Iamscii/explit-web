@@ -1,8 +1,11 @@
-import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit"
-
-import { performSync } from "@/lib/sync/manager"
+import {
+  createSlice,
+  type AnyAction,
+  type CaseReducer,
+  type PayloadAction,
+} from "@reduxjs/toolkit"
 import type { SyncSnapshot } from "@/lib/sync/manager"
-import type { SyncExecutionOptions } from "@/lib/sync/types"
+import { syncData } from "@/redux/thunks/syncThunks"
 import type { SafeCard, SafeUserCardProgress } from "@/types/data"
 
 interface StudyState {
@@ -18,18 +21,37 @@ const initialState: StudyState = {
   status: "idle",
 }
 
-export const syncData = createAsyncThunk<
-  SyncSnapshot,
-  SyncExecutionOptions | undefined,
-  { rejectValue: string }
->("study/syncData", async (options, { rejectWithValue }) => {
-  try {
-    return await performSync(options ?? {})
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Sync failed"
-    return rejectWithValue(message)
-  }
-})
+type StudySyncPayload = Pick<SyncSnapshot, "cards" | "progresses">
+
+const handleSyncPending: CaseReducer<StudyState, AnyAction> = (state) => {
+  state.status = "syncing"
+  state.error = undefined
+}
+
+const handleSyncFulfilled: CaseReducer<
+  StudyState,
+  PayloadAction<StudySyncPayload>
+> = (state, action) => {
+  const snapshot = action.payload
+  state.status = "idle"
+  state.cards = snapshot.cards
+  state.progresses = snapshot.progresses
+}
+
+const handleSyncRejected: CaseReducer<
+  StudyState,
+  PayloadAction<string | undefined>
+> = (state, action) => {
+  state.status = "failed"
+  state.error = action.payload ?? "Unable to sync data"
+}
+
+const isSyncFulfilled = (
+  action: AnyAction,
+): action is PayloadAction<StudySyncPayload> => action.type === syncData.fulfilled.type
+
+const isSyncRejected = (action: AnyAction): action is PayloadAction<string | undefined> =>
+  action.type === syncData.rejected.type
 
 const studySlice = createSlice({
   name: "study",
@@ -44,19 +66,9 @@ const studySlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(syncData.pending, (state) => {
-        state.status = "syncing"
-        state.error = undefined
-      })
-      .addCase(syncData.fulfilled, (state, action) => {
-        state.status = "idle"
-        state.cards = action.payload.cards
-        state.progresses = action.payload.progresses
-      })
-      .addCase(syncData.rejected, (state, action) => {
-        state.status = "failed"
-        state.error = action.payload ?? "Unable to sync data"
-      })
+      .addCase(syncData.pending, handleSyncPending)
+      .addMatcher(isSyncFulfilled, handleSyncFulfilled)
+      .addMatcher(isSyncRejected, handleSyncRejected)
   },
 })
 

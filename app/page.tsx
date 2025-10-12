@@ -1,5 +1,8 @@
-import HomeHero from "@/components/home/HomeHero"
+import { HomePage } from "@/components/home/HomePage"
+import { getAuthSession } from "@/lib/auth"
 
-export default function Home() {
-  return <HomeHero />
+export default async function Home() {
+  const session = await getAuthSession()
+
+  return <HomePage userId={session?.user?.id ?? null} />
 }

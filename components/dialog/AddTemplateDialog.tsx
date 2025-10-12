@@ -1,26 +1,32 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useTranslations } from "next-intl"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import type {
   SafeField,
   SafeFieldPreference,
   SafeStyle,
   SafeTemplate,
-} from "@/types/data"
-import { CardFace, FieldRole, FieldType, TemplateType } from "@/types/data"
-import useAddTemplateDialog from "@/hooks/dialog/use-add-template-dialog"
-import { useSyncOperations } from "@/hooks/use-sync-operations"
-import { useAppDispatch } from "@/redux/hooks"
-import { setFieldsForTemplate } from "@/redux/slices/fieldSlice"
-import { upsertFieldPreference } from "@/redux/slices/fieldPreferenceSlice"
-import { upsertTemplate } from "@/redux/slices/templateSlice"
-import { Button } from "@/components/ui/button"
+} from "@/types/data";
+import { CardFace, FieldRole, FieldType, TemplateType } from "@prisma/client";
+import useAddTemplateDialog from "@/hooks/dialog/use-add-template-dialog";
+import { useSyncOperations } from "@/hooks/use-sync-operations";
+import { useAppDispatch } from "@/redux/hooks";
+import { setFieldsForTemplate } from "@/redux/slices/fieldSlice";
+import { upsertFieldPreference } from "@/redux/slices/fieldPreferenceSlice";
+import { upsertTemplate } from "@/redux/slices/templateSlice";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +34,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -37,44 +43,51 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export interface AddTemplateDialogProps {
-  userId?: string | null
-  disabled?: boolean
-  onCompleted: (feedback: { type: "success" | "error"; message: string }) => void
+  userId?: string | null;
+  disabled?: boolean;
+  onCompleted: (feedback: {
+    type: "success" | "error";
+    message: string;
+  }) => void;
 }
 
 interface TemplateFieldDraft {
-  id: string
-  name: string
-  type: FieldType
+  id: string;
+  name: string;
+  type: FieldType;
 }
 
 interface TemplatePreferenceDraft {
-  id: string
-  fieldId: string
-  role?: FieldRole | ""
-  face: CardFace
+  id: string;
+  fieldId: string;
+  role?: FieldRole | "";
+  face: CardFace;
 }
 
-const STYLE_JSON_PLACEHOLDER = JSON.stringify({ background: "#ffffff" }, null, 2)
-const SETTINGS_JSON_PLACEHOLDER = JSON.stringify({ shuffle: true }, null, 2)
+const STYLE_JSON_PLACEHOLDER = JSON.stringify(
+  { background: "#ffffff" },
+  null,
+  2
+);
+const SETTINGS_JSON_PLACEHOLDER = JSON.stringify({ shuffle: true }, null, 2);
 const DEFAULT_PREVIEW_STYLE: CSSProperties = {
   background: "#ffffff",
   border: "1px solid var(--border)",
   borderRadius: "12px",
   color: "inherit",
-}
+};
 
 const templateSchema = z.object({
   name: z.string().trim().min(1),
@@ -82,41 +95,46 @@ const templateSchema = z.object({
   type: z.nativeEnum(TemplateType),
   settings: z.string().optional(),
   styleJson: z.string().optional(),
-})
+});
 
-type TemplateFormValues = z.infer<typeof templateSchema>
+type TemplateFormValues = z.infer<typeof templateSchema>;
 
-const fieldRoleOptions: (FieldRole | "none")[] = ["none", ...Object.values(FieldRole)]
+const fieldRoleOptions: (FieldRole | "none")[] = [
+  "none",
+  ...Object.values(FieldRole),
+];
 
 interface TemplatePresetDrafts {
-  fields: TemplateFieldDraft[]
-  frontPreferences: TemplatePreferenceDraft[]
-  backPreferences: TemplatePreferenceDraft[]
+  fields: TemplateFieldDraft[];
+  frontPreferences: TemplatePreferenceDraft[];
+  backPreferences: TemplatePreferenceDraft[];
 }
 
-const createPresetDrafts = (templateType: TemplateType): TemplatePresetDrafts => {
+const createPresetDrafts = (
+  templateType: TemplateType
+): TemplatePresetDrafts => {
   const makeField = (name: string, type: FieldType): TemplateFieldDraft => ({
     id: crypto.randomUUID(),
     name,
     type,
-  })
+  });
 
   const makePref = (
     fieldId: string,
     face: CardFace,
-    role?: FieldRole,
+    role?: FieldRole
   ): TemplatePreferenceDraft => ({
     id: crypto.randomUUID(),
     fieldId,
     face,
     role,
-  })
+  });
 
   switch (templateType) {
     case TemplateType.CHOICE: {
-      const question = makeField("Question", FieldType.TEXT)
-      const options = makeField("Options", FieldType.CHOICE)
-      const answer = makeField("Answer", FieldType.TEXT)
+      const question = makeField("Question", FieldType.TEXT);
+      const options = makeField("Options", FieldType.CHOICE);
+      const answer = makeField("Answer", FieldType.TEXT);
       return {
         fields: [question, options, answer],
         frontPreferences: [
@@ -124,60 +142,68 @@ const createPresetDrafts = (templateType: TemplateType): TemplatePresetDrafts =>
           makePref(options.id, CardFace.FRONT, FieldRole.OPTION),
         ],
         backPreferences: [makePref(answer.id, CardFace.BACK, FieldRole.ANSWER)],
-      }
+      };
     }
     case TemplateType.CLOZE: {
-      const passage = makeField("Passage", FieldType.RICH_TEXT)
-      const answer = makeField("Cloze Answer", FieldType.TEXT)
+      const passage = makeField("Passage", FieldType.RICH_TEXT);
+      const answer = makeField("Cloze Answer", FieldType.TEXT);
       return {
         fields: [passage, answer],
-        frontPreferences: [makePref(passage.id, CardFace.FRONT, FieldRole.PASSAGE)],
+        frontPreferences: [
+          makePref(passage.id, CardFace.FRONT, FieldRole.PASSAGE),
+        ],
         backPreferences: [makePref(answer.id, CardFace.BACK, FieldRole.ANSWER)],
-      }
+      };
     }
     case TemplateType.SPELLING: {
-      const prompt = makeField("Prompt", FieldType.TEXT)
-      const answer = makeField("Answer", FieldType.TEXT)
+      const prompt = makeField("Prompt", FieldType.TEXT);
+      const answer = makeField("Answer", FieldType.TEXT);
       return {
         fields: [prompt, answer],
-        frontPreferences: [makePref(prompt.id, CardFace.FRONT, FieldRole.SPELLING_PROMPT)],
+        frontPreferences: [
+          makePref(prompt.id, CardFace.FRONT, FieldRole.SPELLING_PROMPT),
+        ],
         backPreferences: [makePref(answer.id, CardFace.BACK, FieldRole.ANSWER)],
-      }
+      };
     }
     case TemplateType.READING: {
-      const passage = makeField("Passage", FieldType.RICH_TEXT)
-      const guidance = makeField("Guidance", FieldType.TEXT)
-      const comprehension = makeField("Comprehension", FieldType.TEXT)
+      const passage = makeField("Passage", FieldType.RICH_TEXT);
+      const guidance = makeField("Guidance", FieldType.TEXT);
+      const comprehension = makeField("Comprehension", FieldType.TEXT);
       return {
         fields: [passage, guidance, comprehension],
         frontPreferences: [
           makePref(passage.id, CardFace.FRONT, FieldRole.PASSAGE),
           makePref(guidance.id, CardFace.FRONT, FieldRole.HINT),
         ],
-        backPreferences: [makePref(comprehension.id, CardFace.BACK, FieldRole.ANSWER)],
-      }
+        backPreferences: [
+          makePref(comprehension.id, CardFace.BACK, FieldRole.ANSWER),
+        ],
+      };
     }
     case TemplateType.BASIC:
     default: {
-      const question = makeField("Question", FieldType.TEXT)
-      const answer = makeField("Answer", FieldType.TEXT)
+      const question = makeField("Question", FieldType.TEXT);
+      const answer = makeField("Answer", FieldType.TEXT);
       return {
         fields: [question, answer],
-        frontPreferences: [makePref(question.id, CardFace.FRONT, FieldRole.QUESTION)],
+        frontPreferences: [
+          makePref(question.id, CardFace.FRONT, FieldRole.QUESTION),
+        ],
         backPreferences: [makePref(answer.id, CardFace.BACK, FieldRole.ANSWER)],
-      }
+      };
     }
   }
-}
+};
 
 interface FieldDraftListProps {
-  drafts: TemplateFieldDraft[]
-  onAdd: () => void
-  onUpdate: (id: string, updates: Partial<TemplateFieldDraft>) => void
-  onRemove: (id: string) => void
-  onMove: (id: string, direction: "up" | "down") => void
-  hasMultiple: boolean
-  translations: (key: string) => string
+  drafts: TemplateFieldDraft[];
+  onAdd: () => void;
+  onUpdate: (id: string, updates: Partial<TemplateFieldDraft>) => void;
+  onRemove: (id: string) => void;
+  onMove: (id: string, direction: "up" | "down") => void;
+  hasMultiple: boolean;
+  translations: (key: string) => string;
 }
 
 const FieldDraftList = ({
@@ -191,60 +217,62 @@ const FieldDraftList = ({
 }: FieldDraftListProps) => (
   <div className="space-y-3">
     <div className="flex items-center justify-between">
-      <h3 className="text-base font-semibold">{translations("sections.fields")}</h3>
+      <h3 className="text-base font-semibold">
+        {translations("sections.fields")}
+      </h3>
       <Button type="button" size="sm" variant="outline" onClick={onAdd}>
         <PlusIcon className="mr-2 size-4" />
         {translations("fields.add")}
       </Button>
     </div>
 
-      <div className="space-y-2">
-        {drafts.map((draft, index) => (
-          <div
-            key={draft.id}
-            className="border-border flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-end"
-          >
-            <div className="grid flex-1 gap-2 md:grid-cols-2 md:gap-3">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground text-xs uppercase tracking-wide">
-                  {translations("labels.fieldName")}
-                </span>
-                <Input
+    <div className="space-y-2">
+      {drafts.map((draft, index) => (
+        <div
+          key={draft.id}
+          className="border-border flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-end"
+        >
+          <div className="grid flex-1 gap-2 md:grid-cols-2 md:gap-3">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-muted-foreground text-xs uppercase tracking-wide">
+                {translations("labels.fieldName")}
+              </span>
+              <Input
                 value={draft.name}
                 onChange={(event) =>
                   onUpdate(draft.id, { name: event.target.value })
                 }
-                  placeholder={translations("placeholders.fieldName")}
-                />
-              </label>
+                placeholder={translations("placeholders.fieldName")}
+              />
+            </label>
 
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground text-xs uppercase tracking-wide">
-                  {translations("labels.fieldType")}
-                </span>
-                <Select
-                  value={draft.type}
-                  onValueChange={(value) =>
-                    onUpdate(draft.id, { type: value as FieldType })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.values(FieldType).map((fieldType) => (
-                      <SelectItem key={fieldType} value={fieldType}>
-                        {translations(`fieldTypes.${fieldType}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            </div>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-muted-foreground text-xs uppercase tracking-wide">
+                {translations("labels.fieldType")}
+              </span>
+              <Select
+                value={draft.type}
+                onValueChange={(value) =>
+                  onUpdate(draft.id, { type: value as FieldType })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(FieldType).map((fieldType) => (
+                    <SelectItem key={fieldType} value={fieldType}>
+                      {translations(`fieldTypes.${fieldType}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          </div>
 
-            <div className="flex items-center gap-2 md:flex-col md:items-stretch md:justify-end">
-              <Button
-                type="button"
+          <div className="flex items-center gap-2 md:flex-col md:items-stretch md:justify-end">
+            <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="md:h-9 md:w-9"
@@ -265,11 +293,11 @@ const FieldDraftList = ({
               <ArrowDownIcon className="size-4" />
               <span className="sr-only">{translations("fields.moveDown")}</span>
             </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-destructive md:h-9 md:w-9"
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-destructive md:h-9 md:w-9"
               onClick={() => onRemove(draft.id)}
               disabled={!hasMultiple}
             >
@@ -281,17 +309,17 @@ const FieldDraftList = ({
       ))}
     </div>
   </div>
-)
+);
 
 interface FieldPreferenceListProps {
-  face: CardFace
-  drafts: TemplatePreferenceDraft[]
-  fields: TemplateFieldDraft[]
-  onAdd: () => void
-  onUpdate: (id: string, updates: Partial<TemplatePreferenceDraft>) => void
-  onRemove: (id: string) => void
-  onMove: (id: string, direction: "up" | "down") => void
-  translations: (key: string) => string
+  face: CardFace;
+  drafts: TemplatePreferenceDraft[];
+  fields: TemplateFieldDraft[];
+  onAdd: () => void;
+  onUpdate: (id: string, updates: Partial<TemplatePreferenceDraft>) => void;
+  onRemove: (id: string) => void;
+  onMove: (id: string, direction: "up" | "down") => void;
+  translations: (key: string) => string;
 }
 
 const FieldPreferenceList = ({
@@ -304,21 +332,27 @@ const FieldPreferenceList = ({
   onMove,
   translations,
 }: FieldPreferenceListProps) => {
-  const headingKey = face === CardFace.FRONT ? "front" : "back"
-  const heading = translations(`fieldSections.${headingKey}`)
-  const addLabel = translations("preferences.add")
-  const emptyLabel = translations("preferences.empty")
-  const fieldLabel = translations("preferences.field")
-  const roleLabel = translations("preferences.role")
-  const missingFieldLabel = translations("preferences.missingField")
+  const headingKey = face === CardFace.FRONT ? "front" : "back";
+  const heading = translations(`fieldSections.${headingKey}`);
+  const addLabel = translations("preferences.add");
+  const emptyLabel = translations("preferences.empty");
+  const fieldLabel = translations("preferences.field");
+  const roleLabel = translations("preferences.role");
+  const missingFieldLabel = translations("preferences.missingField");
 
-  const hasFields = fields.length > 0
+  const hasFields = fields.length > 0;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold">{heading}</h3>
-        <Button type="button" size="sm" variant="outline" onClick={onAdd} disabled={!hasFields}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onAdd}
+          disabled={!hasFields}
+        >
           <PlusIcon className="mr-2 size-4" />
           {addLabel}
         </Button>
@@ -327,11 +361,13 @@ const FieldPreferenceList = ({
       {!hasFields ? (
         <p className="text-muted-foreground text-sm">{emptyLabel}</p>
       ) : drafts.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{translations("preferences.emptySlots")}</p>
+        <p className="text-muted-foreground text-sm">
+          {translations("preferences.emptySlots")}
+        </p>
       ) : (
         <div className="space-y-2">
           {drafts.map((draft, index) => {
-            const field = fields.find((item) => item.id === draft.fieldId)
+            const field = fields.find((item) => item.id === draft.fieldId);
 
             return (
               <div
@@ -345,7 +381,9 @@ const FieldPreferenceList = ({
                     </span>
                     <Select
                       value={draft.fieldId}
-                      onValueChange={(value) => onUpdate(draft.id, { fieldId: value })}
+                      onValueChange={(value) =>
+                        onUpdate(draft.id, { fieldId: value })
+                      }
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder={missingFieldLabel} />
@@ -359,7 +397,9 @@ const FieldPreferenceList = ({
                       </SelectContent>
                     </Select>
                     {!field && (
-                      <span className="text-muted-foreground text-xs">{missingFieldLabel}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {missingFieldLabel}
+                      </span>
                     )}
                   </label>
 
@@ -370,7 +410,9 @@ const FieldPreferenceList = ({
                     <Select
                       value={draft.role ?? "none"}
                       onValueChange={(value) =>
-                        onUpdate(draft.id, { role: value === "none" ? "" : (value as FieldRole) })
+                        onUpdate(draft.id, {
+                          role: value === "none" ? "" : (value as FieldRole),
+                        })
                       }
                     >
                       <SelectTrigger className="w-full">
@@ -386,7 +428,7 @@ const FieldPreferenceList = ({
                             <SelectItem key={roleOption} value={roleOption}>
                               {translations(`fieldRoles.${roleOption}`)}
                             </SelectItem>
-                          ),
+                          )
                         )}
                       </SelectContent>
                     </Select>
@@ -403,7 +445,9 @@ const FieldPreferenceList = ({
                     disabled={index === 0}
                   >
                     <ArrowUpIcon className="size-4" />
-                    <span className="sr-only">{translations("fields.moveUp")}</span>
+                    <span className="sr-only">
+                      {translations("fields.moveUp")}
+                    </span>
                   </Button>
                   <Button
                     type="button"
@@ -414,7 +458,9 @@ const FieldPreferenceList = ({
                     disabled={index === drafts.length - 1}
                   >
                     <ArrowDownIcon className="size-4" />
-                    <span className="sr-only">{translations("fields.moveDown")}</span>
+                    <span className="sr-only">
+                      {translations("fields.moveDown")}
+                    </span>
                   </Button>
                   <Button
                     type="button"
@@ -424,31 +470,44 @@ const FieldPreferenceList = ({
                     onClick={() => onRemove(draft.id)}
                   >
                     <Trash2Icon className="size-4" />
-                    <span className="sr-only">{translations("fields.remove")}</span>
+                    <span className="sr-only">
+                      {translations("fields.remove")}
+                    </span>
                   </Button>
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
 interface TemplatePreviewProps {
-  heading: string
-  title: string
-  body: string
-  style: CSSProperties
-  error?: string | null
+  heading: string;
+  title: string;
+  body: string;
+  style: CSSProperties;
+  error?: string | null;
 }
 
-const TemplatePreview = ({ heading, title, body, style, error }: TemplatePreviewProps) => {
-  const flexDirection = (style.flexDirection as CSSProperties["flexDirection"]) ?? "column"
-  const isHorizontal = flexDirection === "row"
-  const writingMode: CSSProperties["writingMode"] = isHorizontal ? "vertical-rl" : "horizontal-tb"
-  const textOrientation: CSSProperties["textOrientation"] = isHorizontal ? "upright" : "mixed"
+const TemplatePreview = ({
+  heading,
+  title,
+  body,
+  style,
+  error,
+}: TemplatePreviewProps) => {
+  const flexDirection =
+    (style.flexDirection as CSSProperties["flexDirection"]) ?? "column";
+  const isHorizontal = flexDirection === "row";
+  const writingMode: CSSProperties["writingMode"] = isHorizontal
+    ? "vertical-rl"
+    : "horizontal-tb";
+  const textOrientation: CSSProperties["textOrientation"] = isHorizontal
+    ? "upright"
+    : "mixed";
 
   const resolvedStyle: CSSProperties = {
     display: "flex",
@@ -458,7 +517,7 @@ const TemplatePreview = ({ heading, title, body, style, error }: TemplatePreview
     justifyContent: "center",
     padding: "1.5rem",
     ...style,
-  }
+  };
 
   return (
     <section className="space-y-3">
@@ -477,7 +536,10 @@ const TemplatePreview = ({ heading, title, body, style, error }: TemplatePreview
             backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
           }}
         />
-        <div className="absolute inset-4 rounded-md border shadow-sm" style={resolvedStyle}>
+        <div
+          className="absolute inset-4 rounded-md border shadow-sm"
+          style={resolvedStyle}
+        >
           <h4
             className="m-0 text-lg font-semibold"
             style={{ writingMode, textOrientation }}
@@ -491,32 +553,45 @@ const TemplatePreview = ({ heading, title, body, style, error }: TemplatePreview
       </div>
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </section>
-  )
-}
+  );
+};
 
-export const AddTemplateDialog = ({ userId, disabled, onCompleted }: AddTemplateDialogProps) => {
-  const { isOpen, onOpen, onClose } = useAddTemplateDialog()
-  const initialPreset = useMemo(() => createPresetDrafts(TemplateType.BASIC), [])
-  const [fieldDrafts, setFieldDrafts] = useState<TemplateFieldDraft[]>(initialPreset.fields)
-  const [frontPreferenceDrafts, setFrontPreferenceDrafts] = useState<TemplatePreferenceDraft[]>(
-    initialPreset.frontPreferences,
-  )
-  const [backPreferenceDrafts, setBackPreferenceDrafts] = useState<TemplatePreferenceDraft[]>(
-    initialPreset.backPreferences,
-  )
-  const [fieldsDirty, setFieldsDirty] = useState(false)
-  const [structureError, setStructureError] = useState<string | null>(null)
+export const AddTemplateDialog = ({
+  userId,
+  disabled,
+  onCompleted,
+}: AddTemplateDialogProps) => {
+  const { isOpen, onOpen, onClose } = useAddTemplateDialog();
+  const initialPreset = useMemo(
+    () => createPresetDrafts(TemplateType.BASIC),
+    []
+  );
+  const [fieldDrafts, setFieldDrafts] = useState<TemplateFieldDraft[]>(
+    initialPreset.fields
+  );
+  const [frontPreferenceDrafts, setFrontPreferenceDrafts] = useState<
+    TemplatePreferenceDraft[]
+  >(initialPreset.frontPreferences);
+  const [backPreferenceDrafts, setBackPreferenceDrafts] = useState<
+    TemplatePreferenceDraft[]
+  >(initialPreset.backPreferences);
+  const [fieldsDirty, setFieldsDirty] = useState(false);
+  const [structureError, setStructureError] = useState<string | null>(null);
 
-  const { enqueueTemplateUpsert, enqueueStyleUpsert, enqueueFieldUpsert, enqueueFieldPreferenceUpsert } =
-    useSyncOperations()
-  const dispatch = useAppDispatch()
+  const {
+    enqueueTemplateUpsert,
+    enqueueStyleUpsert,
+    enqueueFieldUpsert,
+    enqueueFieldPreferenceUpsert,
+  } = useSyncOperations();
+  const dispatch = useAppDispatch();
 
-  const formT = useTranslations("dashboard.form")
-  const actionT = useTranslations("dashboard.actions.templates")
+  const formT = useTranslations("dashboard.form");
+  const actionT = useTranslations("dashboard.actions.templates");
   const templateTypeOptions = useMemo(
     () => Object.values(TemplateType) as TemplateType[],
-    [],
-  )
+    []
+  );
 
   const form = useForm<TemplateFormValues>({
     resolver: zodResolver(templateSchema),
@@ -527,50 +602,53 @@ export const AddTemplateDialog = ({ userId, disabled, onCompleted }: AddTemplate
       settings: "",
       styleJson: STYLE_JSON_PLACEHOLDER,
     },
-  })
+  });
 
-  const styleJsonValue = form.watch("styleJson")
-  const styleParseErrorLabel = formT("errors.stylePreview")
+  const styleJsonValue = form.watch("styleJson");
+  const styleParseErrorLabel = formT("errors.stylePreview");
 
   const { previewStyle, styleParseError } = useMemo(() => {
-    const fallbackStyle: CSSProperties = { ...DEFAULT_PREVIEW_STYLE }
+    const fallbackStyle: CSSProperties = { ...DEFAULT_PREVIEW_STYLE };
 
     if (!styleJsonValue || !styleJsonValue.trim()) {
-      return { previewStyle: fallbackStyle, styleParseError: null }
+      return { previewStyle: fallbackStyle, styleParseError: null };
     }
 
     try {
-      const parsed = JSON.parse(styleJsonValue)
+      const parsed = JSON.parse(styleJsonValue);
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        const nextStyle: CSSProperties = {}
+        const nextStyle: CSSProperties = {};
         Object.entries(parsed).forEach(([key, value]) => {
           if (typeof value === "string" || typeof value === "number") {
-            ;(nextStyle as Record<string, unknown>)[key] = value
+            (nextStyle as Record<string, unknown>)[key] = value;
           }
-        })
+        });
         return {
           previewStyle: { ...fallbackStyle, ...nextStyle },
           styleParseError: null,
-        }
+        };
       }
     } catch {
-      return { previewStyle: fallbackStyle, styleParseError: styleParseErrorLabel }
+      return {
+        previewStyle: fallbackStyle,
+        styleParseError: styleParseErrorLabel,
+      };
     }
 
     return {
       previewStyle: fallbackStyle,
       styleParseError: styleParseErrorLabel,
-    }
-  }, [styleJsonValue, styleParseErrorLabel])
+    };
+  }, [styleJsonValue, styleParseErrorLabel]);
 
   const resetState = useCallback(() => {
-    const preset = createPresetDrafts(TemplateType.BASIC)
-    setFieldDrafts(preset.fields)
-    setFrontPreferenceDrafts(preset.frontPreferences)
-    setBackPreferenceDrafts(preset.backPreferences)
-    setFieldsDirty(false)
-    setStructureError(null)
-  }, [])
+    const preset = createPresetDrafts(TemplateType.BASIC);
+    setFieldDrafts(preset.fields);
+    setFrontPreferenceDrafts(preset.frontPreferences);
+    setBackPreferenceDrafts(preset.backPreferences);
+    setFieldsDirty(false);
+    setStructureError(null);
+  }, []);
 
   const resetForm = useCallback(() => {
     form.reset({
@@ -579,194 +657,220 @@ export const AddTemplateDialog = ({ userId, disabled, onCompleted }: AddTemplate
       type: TemplateType.BASIC,
       settings: "",
       styleJson: STYLE_JSON_PLACEHOLDER,
-    })
-    resetState()
-  }, [form, resetState])
+    });
+    resetState();
+  }, [form, resetState]);
 
   const closeDialog = useCallback(() => {
-    onClose()
-    resetForm()
-  }, [onClose, resetForm])
+    onClose();
+    resetForm();
+  }, [onClose, resetForm]);
 
   useEffect(() => {
     if (disabled && isOpen) {
-      closeDialog()
+      closeDialog();
     }
-  }, [closeDialog, disabled, isOpen])
+  }, [closeDialog, disabled, isOpen]);
 
-  const applyPresetForType = useCallback(
-    (templateType: TemplateType) => {
-      const preset = createPresetDrafts(templateType)
-      setFieldDrafts(preset.fields)
-      setFrontPreferenceDrafts(preset.frontPreferences)
-      setBackPreferenceDrafts(preset.backPreferences)
-      setFieldsDirty(false)
-      setStructureError(null)
-    },
-    [],
-  )
+  const applyPresetForType = useCallback((templateType: TemplateType) => {
+    const preset = createPresetDrafts(templateType);
+    setFieldDrafts(preset.fields);
+    setFrontPreferenceDrafts(preset.frontPreferences);
+    setBackPreferenceDrafts(preset.backPreferences);
+    setFieldsDirty(false);
+    setStructureError(null);
+  }, []);
 
   const reorderDraft = useCallback((id: string, direction: "up" | "down") => {
     setFieldDrafts((current) => {
-      const index = current.findIndex((draft) => draft.id === id)
-      if (index < 0) return current
-      const targetIndex = direction === "up" ? index - 1 : index + 1
-      if (targetIndex < 0 || targetIndex >= current.length) return current
+      const index = current.findIndex((draft) => draft.id === id);
+      if (index < 0) return current;
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= current.length) return current;
 
-      const next = [...current]
-      const [moved] = next.splice(index, 1)
-      next.splice(targetIndex, 0, moved)
-      return next
-    })
-    setStructureError(null)
-    setFieldsDirty(true)
-  }, [])
+      const next = [...current];
+      const [moved] = next.splice(index, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+    setStructureError(null);
+    setFieldsDirty(true);
+  }, []);
 
-  const updateDraft = useCallback((id: string, updates: Partial<TemplateFieldDraft>) => {
-    setFieldDrafts((current) =>
-      current.map((draft) => (draft.id === id ? { ...draft, ...updates } : draft)),
-    )
-    setStructureError(null)
-    setFieldsDirty(true)
-  }, [])
-
-const addDraft = useCallback(() => {
-  setFieldDrafts((current) => [
-    ...current,
-    {
-      id: crypto.randomUUID(),
-      name: formT("placeholders.fieldName"),
-      type: FieldType.TEXT,
+  const updateDraft = useCallback(
+    (id: string, updates: Partial<TemplateFieldDraft>) => {
+      setFieldDrafts((current) =>
+        current.map((draft) =>
+          draft.id === id ? { ...draft, ...updates } : draft
+        )
+      );
+      setStructureError(null);
+      setFieldsDirty(true);
     },
-  ])
-  setStructureError(null)
-  setFieldsDirty(true)
-}, [formT])
+    []
+  );
 
-const removeDraft = useCallback((id: string) => {
-  setFieldDrafts((current) => current.filter((draft) => draft.id !== id))
-  setFrontPreferenceDrafts((current) => current.filter((pref) => pref.fieldId !== id))
-  setBackPreferenceDrafts((current) => current.filter((pref) => pref.fieldId !== id))
-  setStructureError(null)
-  setFieldsDirty(true)
-}, [])
+  const addDraft = useCallback(() => {
+    setFieldDrafts((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        name: formT("placeholders.fieldName"),
+        type: FieldType.TEXT,
+      },
+    ]);
+    setStructureError(null);
+    setFieldsDirty(true);
+  }, [formT]);
 
-const addPreference = useCallback(
-  (face: CardFace) => {
-    if (!fieldDrafts.length) {
-      return
-    }
+  const removeDraft = useCallback((id: string) => {
+    setFieldDrafts((current) => current.filter((draft) => draft.id !== id));
+    setFrontPreferenceDrafts((current) =>
+      current.filter((pref) => pref.fieldId !== id)
+    );
+    setBackPreferenceDrafts((current) =>
+      current.filter((pref) => pref.fieldId !== id)
+    );
+    setStructureError(null);
+    setFieldsDirty(true);
+  }, []);
 
-    const defaultFieldId = fieldDrafts[0].id
-    const draft: TemplatePreferenceDraft = {
-      id: crypto.randomUUID(),
-      fieldId: defaultFieldId,
-      role: "",
-      face,
-    }
+  const addPreference = useCallback(
+    (face: CardFace) => {
+      if (!fieldDrafts.length) {
+        return;
+      }
 
-    if (face === CardFace.FRONT) {
-      setFrontPreferenceDrafts((current) => [...current, draft])
-    } else {
-      setBackPreferenceDrafts((current) => [...current, draft])
-    }
-    setStructureError(null)
-    setFieldsDirty(true)
-  },
-  [fieldDrafts],
-)
+      const defaultFieldId = fieldDrafts[0].id;
+      const draft: TemplatePreferenceDraft = {
+        id: crypto.randomUUID(),
+        fieldId: defaultFieldId,
+        role: "",
+        face,
+      };
 
-const updatePreference = useCallback((face: CardFace, id: string, updates: Partial<TemplatePreferenceDraft>) => {
-  const setter = face === CardFace.FRONT ? setFrontPreferenceDrafts : setBackPreferenceDrafts
-  setter((current) => current.map((pref) => (pref.id === id ? { ...pref, ...updates } : pref)))
-  setStructureError(null)
-  setFieldsDirty(true)
-}, [])
+      if (face === CardFace.FRONT) {
+        setFrontPreferenceDrafts((current) => [...current, draft]);
+      } else {
+        setBackPreferenceDrafts((current) => [...current, draft]);
+      }
+      setStructureError(null);
+      setFieldsDirty(true);
+    },
+    [fieldDrafts]
+  );
 
-const removePreference = useCallback((face: CardFace, id: string) => {
-  const setter = face === CardFace.FRONT ? setFrontPreferenceDrafts : setBackPreferenceDrafts
-  setter((current) => current.filter((pref) => pref.id !== id))
-  setStructureError(null)
-  setFieldsDirty(true)
-}, [])
+  const updatePreference = useCallback(
+    (face: CardFace, id: string, updates: Partial<TemplatePreferenceDraft>) => {
+      const setter =
+        face === CardFace.FRONT
+          ? setFrontPreferenceDrafts
+          : setBackPreferenceDrafts;
+      setter((current) =>
+        current.map((pref) => (pref.id === id ? { ...pref, ...updates } : pref))
+      );
+      setStructureError(null);
+      setFieldsDirty(true);
+    },
+    []
+  );
 
-const movePreference = useCallback((face: CardFace, id: string, direction: "up" | "down") => {
-  const setter = face === CardFace.FRONT ? setFrontPreferenceDrafts : setBackPreferenceDrafts
-  setter((current) => {
-    const index = current.findIndex((pref) => pref.id === id)
-    if (index < 0) return current
-    const targetIndex = direction === "up" ? index - 1 : index + 1
-    if (targetIndex < 0 || targetIndex >= current.length) return current
-    const next = [...current]
-    const [moved] = next.splice(index, 1)
-    next.splice(targetIndex, 0, moved)
-    return next
-  })
-  setStructureError(null)
-  setFieldsDirty(true)
-}, [])
+  const removePreference = useCallback((face: CardFace, id: string) => {
+    const setter =
+      face === CardFace.FRONT
+        ? setFrontPreferenceDrafts
+        : setBackPreferenceDrafts;
+    setter((current) => current.filter((pref) => pref.id !== id));
+    setStructureError(null);
+    setFieldsDirty(true);
+  }, []);
+
+  const movePreference = useCallback(
+    (face: CardFace, id: string, direction: "up" | "down") => {
+      const setter =
+        face === CardFace.FRONT
+          ? setFrontPreferenceDrafts
+          : setBackPreferenceDrafts;
+      setter((current) => {
+        const index = current.findIndex((pref) => pref.id === id);
+        if (index < 0) return current;
+        const targetIndex = direction === "up" ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= current.length) return current;
+        const next = [...current];
+        const [moved] = next.splice(index, 1);
+        next.splice(targetIndex, 0, moved);
+        return next;
+      });
+      setStructureError(null);
+      setFieldsDirty(true);
+    },
+    []
+  );
 
   const getErrorMessage = (error: unknown) =>
-    error instanceof Error ? error.message : formT("unknownError")
+    error instanceof Error ? error.message : formT("unknownError");
 
   const onSubmit = async (values: TemplateFormValues) => {
     if (!userId) {
-      onCompleted({ type: "error", message: formT("notSignedIn") })
-      return
+      onCompleted({ type: "error", message: formT("notSignedIn") });
+      return;
     }
 
-    setStructureError(null)
+    setStructureError(null);
 
     if (!fieldDrafts.length) {
-      setStructureError(formT("errors.fieldsRequired"))
-      return
+      setStructureError(formT("errors.fieldsRequired"));
+      return;
     }
 
     if (fieldDrafts.some((draft) => !draft.name.trim())) {
-      setStructureError(formT("errors.fieldNames"))
-      return
+      setStructureError(formT("errors.fieldNames"));
+      return;
     }
 
     if (!frontPreferenceDrafts.length && !backPreferenceDrafts.length) {
-      setStructureError(formT("errors.preferencesRequired"))
-      return
+      setStructureError(formT("errors.preferencesRequired"));
+      return;
     }
 
-    let parsedSettings: SafeTemplate["settings"] = null
+    let parsedSettings: SafeTemplate["settings"] = null;
     if (values.settings && values.settings.trim().length > 0) {
       try {
-        parsedSettings = JSON.parse(values.settings)
+        parsedSettings = JSON.parse(values.settings);
       } catch {
         form.setError("settings", {
           type: "manual",
           message: formT("errors.settings"),
-        })
-        return
+        });
+        return;
       }
     }
 
-    let parsedStyle: SafeStyle["stylesJson"] = {}
+    let parsedStyle: SafeStyle["stylesJson"] = {};
     if (values.styleJson && values.styleJson.trim().length > 0) {
       try {
-        parsedStyle = JSON.parse(values.styleJson)
+        parsedStyle = JSON.parse(values.styleJson);
       } catch {
         form.setError("styleJson", {
           type: "manual",
           message: formT("errors.style"),
-        })
-        return
+        });
+        return;
       }
     }
 
-    const now = new Date().toISOString()
+    const now = new Date().toISOString();
 
-    const templateId = crypto.randomUUID()
-    const styleId = crypto.randomUUID()
+    const templateId = crypto.randomUUID();
+    const styleId = crypto.randomUUID();
 
     const template: SafeTemplate = {
       id: templateId,
       name: values.name,
-      description: values.description && values.description.length > 0 ? values.description : null,
+      description:
+        values.description && values.description.length > 0
+          ? values.description
+          : null,
       createdAt: now,
       lastModifiedAt: now,
       createdById: userId,
@@ -781,7 +885,7 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
         createdAt: now,
         lastModifiedAt: now,
       },
-    }
+    };
 
     const style: SafeStyle = {
       id: styleId,
@@ -789,7 +893,7 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
       stylesJson: parsedStyle,
       createdAt: now,
       lastModifiedAt: now,
-    }
+    };
 
     const fields: SafeField[] = fieldDrafts.map((draft) => ({
       id: draft.id,
@@ -797,13 +901,13 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
       type: draft.type,
       templateId,
       lastModifiedAt: now,
-    }))
+    }));
 
-    const validFieldIds = new Set(fieldDrafts.map((draft) => draft.id))
+    const validFieldIds = new Set(fieldDrafts.map((draft) => draft.id));
 
     const buildPreferences = (
       drafts: TemplatePreferenceDraft[],
-      face: CardFace,
+      face: CardFace
     ): SafeFieldPreference[] =>
       drafts
         .filter((draft) => validFieldIds.has(draft.fieldId))
@@ -816,16 +920,16 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
           position: index,
           styleJson: null,
           lastModifiedAt: now,
-        }))
+        }));
 
     const preferences: SafeFieldPreference[] = [
       ...buildPreferences(frontPreferenceDrafts, CardFace.FRONT),
       ...buildPreferences(backPreferenceDrafts, CardFace.BACK),
-    ]
+    ];
 
     if (!preferences.length) {
-      setStructureError(formT("errors.preferencesRequired"))
-      return
+      setStructureError(formT("errors.preferencesRequired"));
+      return;
     }
 
     try {
@@ -834,30 +938,30 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
         enqueueStyleUpsert(style),
         ...fields.map((field) => enqueueFieldUpsert(field)),
         ...preferences.map((pref) => enqueueFieldPreferenceUpsert(pref)),
-      ])
+      ]);
 
-      dispatch(upsertTemplate(template))
-      dispatch(setFieldsForTemplate({ templateId, fields }))
-      preferences.forEach((pref) => dispatch(upsertFieldPreference(pref)))
+      dispatch(upsertTemplate(template));
+      dispatch(setFieldsForTemplate({ templateId, fields }));
+      preferences.forEach((pref) => dispatch(upsertFieldPreference(pref)));
 
-      onCompleted({ type: "success", message: actionT("success") })
-      closeDialog()
+      onCompleted({ type: "success", message: actionT("success") });
+      closeDialog();
     } catch (error) {
       onCompleted({
         type: "error",
         message: actionT("error", { message: getErrorMessage(error) }),
-      })
+      });
     }
-  }
+  };
 
   return (
     <Dialog
       open={isOpen && !disabled}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
-          closeDialog()
+          closeDialog();
         } else if (!disabled) {
-          onOpen()
+          onOpen();
         }
       }}
     >
@@ -871,8 +975,8 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
           <Form {...form}>
             <form
               onSubmit={(event) => {
-                event.preventDefault()
-                void form.handleSubmit(onSubmit)(event)
+                event.preventDefault();
+                void form.handleSubmit(onSubmit)(event);
               }}
               className="space-y-6"
             >
@@ -886,7 +990,10 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                         <FormItem>
                           <FormLabel>{formT("labels.name")}</FormLabel>
                           <FormControl>
-                            <Input placeholder={formT("placeholders.templateName")} {...field} />
+                            <Input
+                              placeholder={formT("placeholders.templateName")}
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -902,15 +1009,19 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                           <Select
                             value={field.value}
                             onValueChange={(value) => {
-                              field.onChange(value as TemplateType)
+                              field.onChange(value as TemplateType);
                               if (!fieldsDirty) {
-                                applyPresetForType(value as TemplateType)
+                                applyPresetForType(value as TemplateType);
                               }
                             }}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder={formT("placeholders.templateType")} />
+                                <SelectValue
+                                  placeholder={formT(
+                                    "placeholders.templateType"
+                                  )}
+                                />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -921,7 +1032,9 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>{formT("descriptions.templateType")}</FormDescription>
+                          <FormDescription>
+                            {formT("descriptions.templateType")}
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -935,11 +1048,15 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                           <FormLabel>{formT("labels.description")}</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder={formT("placeholders.templateDescription")}
+                              placeholder={formT(
+                                "placeholders.templateDescription"
+                              )}
                               {...field}
                             />
                           </FormControl>
-                          <FormDescription>{formT("descriptions.templateDescription")}</FormDescription>
+                          <FormDescription>
+                            {formT("descriptions.templateDescription")}
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -952,7 +1069,9 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => applyPresetForType(form.getValues("type"))}
+                        onClick={() =>
+                          applyPresetForType(form.getValues("type"))
+                        }
                       >
                         {formT("fields.applyPreset")}
                       </Button>
@@ -978,9 +1097,13 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                       drafts={frontPreferenceDrafts}
                       fields={fieldDrafts}
                       onAdd={() => addPreference(CardFace.FRONT)}
-                      onUpdate={(id, updates) => updatePreference(CardFace.FRONT, id, updates)}
+                      onUpdate={(id, updates) =>
+                        updatePreference(CardFace.FRONT, id, updates)
+                      }
                       onRemove={(id) => removePreference(CardFace.FRONT, id)}
-                      onMove={(id, direction) => movePreference(CardFace.FRONT, id, direction)}
+                      onMove={(id, direction) =>
+                        movePreference(CardFace.FRONT, id, direction)
+                      }
                       translations={formT}
                     />
 
@@ -989,9 +1112,13 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                       drafts={backPreferenceDrafts}
                       fields={fieldDrafts}
                       onAdd={() => addPreference(CardFace.BACK)}
-                      onUpdate={(id, updates) => updatePreference(CardFace.BACK, id, updates)}
+                      onUpdate={(id, updates) =>
+                        updatePreference(CardFace.BACK, id, updates)
+                      }
                       onRemove={(id) => removePreference(CardFace.BACK, id)}
-                      onMove={(id, direction) => movePreference(CardFace.BACK, id, direction)}
+                      onMove={(id, direction) =>
+                        movePreference(CardFace.BACK, id, direction)
+                      }
                       translations={formT}
                     />
 
@@ -1009,14 +1136,18 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                               {...field}
                             />
                           </FormControl>
-                          <FormDescription>{formT("descriptions.settings")}</FormDescription>
+                          <FormDescription>
+                            {formT("descriptions.settings")}
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
 
                     {structureError && (
-                      <p className="text-destructive text-sm">{structureError}</p>
+                      <p className="text-destructive text-sm">
+                        {structureError}
+                      </p>
                     )}
                   </div>
                 </section>
@@ -1036,7 +1167,9 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>{formT("descriptions.styleJson")}</FormDescription>
+                        <FormDescription>
+                          {formT("descriptions.styleJson")}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1055,11 +1188,17 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => closeDialog()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeDialog()}
+                >
                   {formT("cancel")}
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? formT("saving") : formT("submit")}
+                  {form.formState.isSubmitting
+                    ? formT("saving")
+                    : formT("submit")}
                 </Button>
               </DialogFooter>
             </form>
@@ -1067,7 +1206,7 @@ const movePreference = useCallback((face: CardFace, id: string, direction: "up" 
         </DialogContent>
       )}
     </Dialog>
-  )
-}
+  );
+};
 
-export default AddTemplateDialog
+export default AddTemplateDialog;

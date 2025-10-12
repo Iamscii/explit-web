@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react"
 
 import { useTranslations } from "next-intl"
-import { useSession } from "next-auth/react"
 
 import { AddCardDialog } from "@/components/dialog/AddCardDialog"
 import { AddDeckDialog } from "@/components/dialog/AddDeckDialog"
@@ -21,20 +20,24 @@ import useAddCardDialog from "@/hooks/dialog/use-add-card-dialog"
 import useAddDeckDialog from "@/hooks/dialog/use-add-deck-dialog"
 import useAddTemplateDialog from "@/hooks/dialog/use-add-template-dialog"
 import { useAppSelector } from "@/redux/hooks"
-import type { SafeTemplate } from "@/types/data"
+import type { SafeCard, SafeTemplate } from "@/types/data"
 
 type DashboardFeedback = {
   type: "success" | "error"
   message: string
 }
 
-export const DashboardPage = () => {
-  const { data: session } = useSession()
+interface DashboardPageProps {
+  userId: string | null
+}
+
+export const DashboardPage = ({ userId }: DashboardPageProps) => {
   const dashboardT = useTranslations("dashboard")
   const formT = useTranslations("dashboard.form")
   const feedbackT = useTranslations("dashboard.feedback")
   const decks = useAppSelector((state) => state.deck.items)
   const templateState = useAppSelector((state) => state.template)
+  const cardState = useAppSelector((state) => state.card)
   const templates = useMemo(
     () =>
       templateState.allIds
@@ -42,14 +45,25 @@ export const DashboardPage = () => {
         .filter(Boolean) as SafeTemplate[],
     [templateState],
   )
+  const cards = useMemo(
+    () =>
+      cardState.allIds
+        .map((id) => cardState.byId[id])
+        .filter(Boolean) as SafeCard[],
+    [cardState],
+  )
+  const templateUsage = useMemo(() => {
+    return cards.reduce<Record<string, number>>((acc, card) => {
+      acc[card.templateId] = (acc[card.templateId] ?? 0) + 1
+      return acc
+    }, {})
+  }, [cards])
 
   const [feedback, setFeedback] = useState<DashboardFeedback | null>(null)
-  const userId = session?.user?.id ?? null
   const isAuthenticated = Boolean(userId)
   const addDeckDialog = useAddDeckDialog()
   const addTemplateDialog = useAddTemplateDialog()
   const addCardDialog = useAddCardDialog()
-
   useEffect(() => {
     if (!feedback) {
       return
@@ -171,6 +185,97 @@ export const DashboardPage = () => {
           </CardContent>
         </Card>
       </section>
+
+      {isAuthenticated && (
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>{dashboardT("data.decks.title")}</CardTitle>
+              <CardDescription>
+                {dashboardT("data.decks.description", { count: decks.length })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {decks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{dashboardT("data.decks.empty")}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {decks.slice(0, 5).map((deck) => (
+                    <li key={deck.id} className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{deck.name}</span>
+                      <span className="text-muted-foreground">
+                        {dashboardT("data.decks.cardCount", {
+                          count: deck.cardCount ?? 0,
+                        })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{dashboardT("data.cards.title")}</CardTitle>
+              <CardDescription>
+                {dashboardT("data.cards.description", { count: cards.length })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {cards.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{dashboardT("data.cards.empty")}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {cards.slice(0, 5).map((card) => {
+                    const templateName = templateState.byId[card.templateId]?.name
+                    const deckLabel = card.deckNames?.[0] ?? dashboardT("data.cards.uncategorized")
+                    return (
+                      <li key={card.id} className="flex flex-col text-sm">
+                        <span className="font-medium">
+                          {templateName ?? dashboardT("data.cards.unknownTemplate")}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {dashboardT("data.cards.primaryDeck", { deck: deckLabel })}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{dashboardT("data.templates.title")}</CardTitle>
+              <CardDescription>
+                {dashboardT("data.templates.description", { count: templates.length })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {templates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {dashboardT("data.templates.empty")}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {templates.slice(0, 5).map((template) => (
+                    <li key={template.id} className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{template.name}</span>
+                      <span className="text-muted-foreground">
+                        {dashboardT("data.templates.usage", {
+                          count: templateUsage[template.id] ?? 0,
+                        })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       <footer className="text-muted-foreground text-sm">
         {formT("hint")}

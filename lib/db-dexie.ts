@@ -16,6 +16,7 @@ export interface DexieCardRecord {
   id: string
   cardId: string
   deckId: string | null
+  userId: string
   payload: SafeCard
   updatedAt: string
 }
@@ -25,6 +26,7 @@ export interface DexieProgressRecord {
   progressId: string
   cardId: string
   userId: string
+  deckId: string
   payload: SafeUserCardProgress
   updatedAt: string
 }
@@ -33,6 +35,7 @@ export interface DexieDeckRecord {
   id: string
   deckId: string
   parentId: string | null
+  userId: string
   payload: SafeDeck
   updatedAt: string
 }
@@ -41,6 +44,7 @@ export interface DexieTemplateRecord {
   id: string
   templateId: string
   styleId: string | null
+  userId: string
   payload: SafeTemplate
   updatedAt: string
 }
@@ -49,6 +53,7 @@ export interface DexieFieldRecord {
   id: string
   fieldId: string
   templateId: string
+  userId: string
   payload: SafeField
   updatedAt: string
 }
@@ -58,6 +63,7 @@ export interface DexieFieldPreferenceRecord {
   fieldPreferenceId: string
   templateId: string
   fieldId: string
+  userId: string
   payload: SafeFieldPreference
   updatedAt: string
 }
@@ -65,6 +71,7 @@ export interface DexieFieldPreferenceRecord {
 export interface DexieStyleRecord {
   id: string
   templateId: string
+  userId: string
   payload: SafeStyle
   updatedAt: string
 }
@@ -85,6 +92,7 @@ export interface DexiePendingOperation {
   payload: unknown
   version?: string
   createdAt: string
+  userId: string
 }
 
 export interface DexieMetadataRecord {
@@ -129,6 +137,34 @@ class ExplitDexieDatabase extends Dexie {
       styles: "&id, templateId",
       userPreferences: "&id, userId",
     })
+
+    this.version(4)
+      .stores({
+        cards: "&id, cardId, deckId, userId",
+        progresses: "&id, progressId, cardId, deckId, userId",
+        pendingOperations: "&id, entity, category, createdAt, userId",
+        metadata: "&key",
+        decks: "&id, deckId, parentId, userId",
+        templates: "&id, templateId, styleId, userId",
+        fields: "&id, fieldId, templateId, userId",
+        fieldPreferences: "&id, templateId, fieldId, userId",
+        styles: "&id, templateId, userId",
+        userPreferences: "&id, userId",
+      })
+      .upgrade(async (transaction) => {
+        await Promise.all([
+          transaction.table("cards").clear(),
+          transaction.table("progresses").clear(),
+          transaction.table("pendingOperations").clear(),
+          transaction.table("decks").clear(),
+          transaction.table("templates").clear(),
+          transaction.table("fields").clear(),
+          transaction.table("fieldPreferences").clear(),
+          transaction.table("styles").clear(),
+          transaction.table("userPreferences").clear(),
+          transaction.table("metadata").clear(),
+        ])
+      })
   }
 }
 

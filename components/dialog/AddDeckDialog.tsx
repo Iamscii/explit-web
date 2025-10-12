@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import type { SafeDeck } from "@/types/data"
-import { DeckType } from "@/types/data"
+import { DeckType } from "@prisma/client"
 
 const deckSchema = z.object({
   name: z.string().trim().min(1),
@@ -130,7 +130,6 @@ export const AddDeckDialog = ({
       ownedById: userId,
       favorited: false,
       cardCount: 0,
-      children: [],
     }
 
     try {

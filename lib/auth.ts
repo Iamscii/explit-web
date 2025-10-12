@@ -50,6 +50,13 @@ export const authOptions: NextAuthOptions = {
   },
 }
 
-export const getAuthSession = () => getServerSession(authOptions)
+export const getAuthSession = async () => {
+  try {
+    return await getServerSession(authOptions)
+  } catch (error) {
+    console.warn("getAuthSession failed; returning null session", error)
+    return null
+  }
+}
 
 export type AppSession = Session

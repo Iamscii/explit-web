@@ -24,6 +24,7 @@ export const mapSafeCardToDexieRecord = (card: SafeCard): DexieCardRecord => ({
   id: card.id,
   cardId: card.id,
   deckId: card.primaryDeckId ?? null,
+  userId: card.ownedById,
   payload: card,
   updatedAt: card.lastModifiedAt,
 })
@@ -35,6 +36,7 @@ export const mapSafeProgressToDexieRecord = (
   progressId: progress.id,
   cardId: progress.cardId,
   userId: progress.userId,
+  deckId: progress.deckId,
   payload: progress,
   updatedAt: progress.lastModifiedAt,
 })
@@ -43,6 +45,7 @@ export const mapSafeDeckToDexieRecord = (deck: SafeDeck): DexieDeckRecord => ({
   id: deck.id,
   deckId: deck.id,
   parentId: deck.parentId ?? null,
+  userId: deck.ownedById,
   payload: deck,
   updatedAt: deck.lastModifiedAt,
 })
@@ -53,32 +56,40 @@ export const mapSafeTemplateToDexieRecord = (
   id: template.id,
   templateId: template.id,
   styleId: template.styleId ?? template.style?.id ?? null,
+  userId: template.ownedById,
   payload: template,
   updatedAt: template.lastModifiedAt,
 })
 
-export const mapSafeFieldToDexieRecord = (field: SafeField): DexieFieldRecord => ({
+export const mapSafeFieldToDexieRecord = (
+  field: SafeField,
+  ownerId: string,
+): DexieFieldRecord => ({
   id: field.id,
   fieldId: field.id,
   templateId: field.templateId,
+  userId: ownerId,
   payload: field,
   updatedAt: field.lastModifiedAt,
 })
 
 export const mapSafeFieldPreferenceToDexieRecord = (
   preference: SafeFieldPreference,
+  ownerId: string,
 ): DexieFieldPreferenceRecord => ({
   id: preference.id,
   fieldPreferenceId: preference.id,
   templateId: preference.templateId,
   fieldId: preference.fieldId,
+  userId: ownerId,
   payload: preference,
   updatedAt: preference.lastModifiedAt,
 })
 
-export const mapSafeStyleToDexieRecord = (style: SafeStyle): DexieStyleRecord => ({
+export const mapSafeStyleToDexieRecord = (style: SafeStyle, ownerId: string): DexieStyleRecord => ({
   id: style.id,
   templateId: style.templateId,
+  userId: ownerId,
   payload: style,
   updatedAt: style.lastModifiedAt,
 })

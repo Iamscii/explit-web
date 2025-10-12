@@ -205,6 +205,32 @@
         "noDecks": "请先创建卡组，让卡片有归属。"
       }
     },
+    "data": {
+      "decks": {
+        "title": "我的卡组",
+        "description": "{count, plural, =0 {暂无卡组} other {共有 # 个卡组}}",
+        "empty": "你还没有创建任何卡组。",
+        "cardCount": "{count, plural, one {# 张卡片} other {# 张卡片}}"
+      },
+      "cards": {
+        "title": "最新卡片",
+        "description": "{count, plural, =0 {暂无卡片} other {共创建 # 张卡片}}",
+        "empty": "创建的卡片会显示在这里。",
+        "primaryDeck": "归属卡组：{deck}",
+        "uncategorized": "未分类",
+        "unknownTemplate": "未知模板"
+      },
+      "templates": {
+        "title": "我的模板",
+        "description": "{count, plural, =0 {暂无模板} other {共有 # 个模板}}",
+        "empty": "创建的模板会列在这里。",
+        "usage": "{count, plural, =0 {尚未被使用} other {被 # 张卡片使用}}"
+      },
+      "loadError": {
+        "title": "暂时无法获取数据",
+        "description": "我们未能连接数据库，当前展示的信息可能不完整。"
+      }
+    },
     "form": {
       "sections": {
         "fields": "字段配置",
@@ -336,6 +362,42 @@
         "error": "发生错误"
       },
       "dismiss": "关闭提示"
+    }
+  },
+  "study": {
+    "deckExplorer": {
+      "sidebarLabel": "卡组",
+      "clearSelection": "清除",
+      "loading": "正在加载卡组数据…",
+      "emptyDecks": "尚未创建任何卡组，可前往仪表盘新建。",
+      "heading": "开始学习",
+      "subheading": "选择一个卡组查看其中的卡片。",
+      "missingDeck": "未找到对应的卡组。",
+      "deckDescriptionFallback": "暂无描述。",
+      "cardCount": "{count, plural, other {共 # 张卡片}}",
+      "noCards": "该卡组暂无卡片。",
+      "noPreview": "（暂无预览）",
+      "cardIndex": "卡片 {index}",
+      "openCard": "打开卡片",
+      "unknownTemplate": "未知模板"
+    },
+    "deckViewer": {
+      "signInRequired": "登录后即可开始学习此卡组。",
+      "loading": "正在加载卡组数据…",
+      "missingDeck": "未找到对应的卡组。",
+      "missingTemplate": "无法找到该卡片对应的模板。",
+      "empty": "该卡组暂无卡片。",
+      "backToDecks": "返回卡组列表",
+      "previous": "上一张",
+      "next": "下一张",
+      "showAnswer": "显示答案",
+      "showQuestion": "显示题目",
+      "questionHeading": "题目",
+      "answerHeading": "答案",
+      "sharedHeading": "共享字段",
+      "noValue": "（空）",
+      "noAnswer": "该模板未设置背面内容。",
+      "heading": "{deck} · 第 {index}/{total} 张"
     }
   }
 }

@@ -2,7 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
 
 import type { SafeDeck } from "@/types/data"
 import type { SyncSnapshot } from "@/lib/sync/manager"
-import { syncData } from "@/redux/slices/studySlice"
+import { syncData } from "@/redux/thunks/syncThunks"
 
 interface DeckState {
   items: SafeDeck[]

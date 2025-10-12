@@ -205,6 +205,32 @@
         "noDecks": "Create a deck first so cards have a home."
       }
     },
+    "data": {
+      "decks": {
+        "title": "Your decks",
+        "description": "{count, plural, =0 {No decks yet} one {# deck ready} other {# decks ready}}",
+        "empty": "No decks in your library yet.",
+        "cardCount": "{count, plural, one {# card} other {# cards}}"
+      },
+      "cards": {
+        "title": "Recent cards",
+        "description": "{count, plural, =0 {No cards created} one {# card created} other {# cards created}}",
+        "empty": "Cards that you add will appear here.",
+        "primaryDeck": "Primary deck: {deck}",
+        "uncategorized": "Uncategorized",
+        "unknownTemplate": "Unknown template"
+      },
+      "templates": {
+        "title": "Templates",
+        "description": "{count, plural, =0 {No templates yet} one {# template ready} other {# templates ready}}",
+        "empty": "Templates that you create will be listed here.",
+        "usage": "{count, plural, one {Used by # card} other {Used by # cards}}"
+      },
+      "loadError": {
+        "title": "Data currently unavailable",
+        "description": "We couldn't connect to the database. Some information may be missing."
+      }
+    },
     "form": {
       "sections": {
         "fields": "Field configuration",
@@ -336,6 +362,42 @@
         "error": "Something went wrong"
       },
       "dismiss": "Dismiss"
+    }
+  },
+  "study": {
+    "deckExplorer": {
+      "sidebarLabel": "Decks",
+      "clearSelection": "Clear",
+      "loading": "Loading deck data…",
+      "emptyDecks": "No decks yet. Create one from the dashboard.",
+      "heading": "Study decks",
+      "subheading": "Select a deck to browse its cards.",
+      "missingDeck": "We couldn't find that deck.",
+      "deckDescriptionFallback": "No description provided.",
+      "cardCount": "{count, plural, one {# card} other {# cards}}",
+      "noCards": "No cards in this deck yet.",
+      "noPreview": "(No preview)",
+      "cardIndex": "Card {index}",
+      "openCard": "Open card",
+      "unknownTemplate": "Unknown template"
+    },
+    "deckViewer": {
+      "signInRequired": "Sign in to study this deck.",
+      "loading": "Loading deck data…",
+      "missingDeck": "We couldn't find that deck.",
+      "missingTemplate": "Template not found for this card.",
+      "empty": "This deck has no cards yet.",
+      "backToDecks": "Back to decks",
+      "previous": "Previous",
+      "next": "Next",
+      "showAnswer": "Show answer",
+      "showQuestion": "Show question",
+      "questionHeading": "Question",
+      "answerHeading": "Answer",
+      "sharedHeading": "Shared fields",
+      "noValue": "(Empty)",
+      "noAnswer": "This template does not define a back side.",
+      "heading": "{deck} · Card {index} of {total}"
     }
   }
 }
