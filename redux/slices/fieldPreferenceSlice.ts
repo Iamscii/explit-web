@@ -137,6 +137,11 @@ const fieldPreferenceSlice = createSlice({
       })
       .addCase(syncData.fulfilled, (state, action) => {
         const snapshot = action.payload as SyncSnapshot
+        state.status = "ready"
+        state.error = undefined
+        if (!snapshot.changedCollections.includes("fieldPreferences")) {
+          return
+        }
         const prefs = snapshot.fieldPreferences ?? []
 
         const nextById: Record<string, SafeFieldPreference> = {}
@@ -150,8 +155,6 @@ const fieldPreferenceSlice = createSlice({
         for (const pref of prefs) {
           indexPreference(state, pref)
         }
-        state.status = "ready"
-        state.error = undefined
       })
       .addCase(syncData.rejected, (state, action) => {
         state.status = "failed"

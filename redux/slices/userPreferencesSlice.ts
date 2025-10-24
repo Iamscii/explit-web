@@ -49,10 +49,14 @@ const userPreferencesSlice = createSlice({
       })
       .addCase(syncData.fulfilled, (state, action) => {
         const snapshot = action.payload as SyncSnapshot
+        state.error = undefined
+        if (!snapshot.changedCollections.includes("userPreferences")) {
+          state.status = state.value ? "ready" : "idle"
+          return
+        }
         const preferences = snapshot.userPreferences?.[0] ?? null
         state.value = preferences
         state.status = preferences ? "ready" : "idle"
-        state.error = undefined
       })
       .addCase(syncData.rejected, (state, action) => {
         state.status = "failed"

@@ -68,13 +68,16 @@ const cardSlice = createSlice({
       })
       .addCase(syncData.fulfilled, (state, action) => {
         const snapshot = action.payload as SyncSnapshot
+        state.status = "ready"
+        state.error = undefined
+        if (!snapshot.changedCollections.includes("cards")) {
+          return
+        }
         state.byId = snapshot.cards.reduce<Record<string, SafeCard>>((acc, card) => {
           acc[card.id] = card
           return acc
         }, {})
         state.allIds = snapshot.cards.map((card) => card.id)
-        state.status = "ready"
-        state.error = undefined
       })
       .addCase(syncData.rejected, (state, action) => {
         state.status = "failed"

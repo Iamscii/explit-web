@@ -117,6 +117,11 @@ const fieldSlice = createSlice({
       })
       .addCase(syncData.fulfilled, (state, action) => {
         const snapshot = action.payload as SyncSnapshot
+        state.status = "ready"
+        state.error = undefined
+        if (!snapshot.changedCollections.includes("fields")) {
+          return
+        }
         const fields = snapshot.fields ?? []
 
         state.byId = fields.reduce<Record<string, SafeField>>((acc, field) => {
@@ -131,8 +136,6 @@ const fieldSlice = createSlice({
           acc[field.templateId]!.push(field.id)
           return acc
         }, {})
-        state.status = "ready"
-        state.error = undefined
       })
       .addCase(syncData.rejected, (state, action) => {
         state.status = "failed"

@@ -6,7 +6,7 @@ This guide gives downstream AI agents the context they need to work effectively 
 
 ## 1. Architecture Snapshot
 - **Framework**: Next.js (App Router) with server components where practical.
-- **Styling**: Tailwind CSS + shadcn/ui. Reuse existing component primitives under `components/ui`.
+- **Styling**: Tailwind CSS + shadcn/ui. Reuse existing component primitives under `components/ui`. Template styles are hydrated from JSON via `parseStyleJson` (`lib/templates/styles.ts`)—extend the selector alias maps there when adding new card or field targets so DeckStudyClient continues to render styles correctly.
 - **Data layer**: Prisma (`lib/prisma.ts`) connected to MongoDB, plus a Dexie IndexedDB cache (`lib/db-dexie.ts`) for offline-first study data covering cards, decks, templates, fields, field preferences, user progress, and user preferences. Deck DTOs are now flattened (`SafeDeck`) to keep TypeScript recursion in check; reach for `SafeDeckTree` when a nested view is necessary. Comment DTOs strip nested `replies` in favor of `replyIds` so Immer reducers avoid recursive drafts. Client flows hydrate from Dexie via `readDexieCollections` and treat MongoDB as the eventual-sync source of truth exposed through `/api/sync`. Dexie tables are now user-scoped (records and pending operations carry `userId`) so multiple accounts can share the same device without leaking data.
 - **Auth**: next-auth configured with the Prisma adapter in `lib/auth.ts`, currently wired for GitHub and Google OAuth. Session strategy is JWT; `session.user.id` is guaranteed via callbacks (see `types/next-auth.d.ts`).
   - Client dialogs (auth and dashboard creation flows) live under `components/dialog/` and expose Zustand stores in `hooks/dialog/` (e.g., `use-login-dialog.ts`, `use-add-card-dialog.ts`) so any page can control open/close state.
@@ -15,6 +15,7 @@ This guide gives downstream AI agents the context they need to work effectively 
 - **Sync engine**: Dexie stores queue pending ops + metadata. `lib/sync/manager.ts` orchestrates POST `/api/sync` requests, applies responses transactionally, and exposes queue helpers.
   - Auto-sync (see `hooks/use-auto-sync.ts`) is only enabled once the user session is authenticated to prevent anonymous clients from hammering the stubbed `/api/sync` endpoint.
   - `SyncRuntime` inside `AppProviders` hydrates Redux slices from Dexie as soon as a session is available, so pages can assume local cache is ready without duplicating bootstrap logic.
+  - FSRS reviews (`hooks/useFsrsAlgorithm.ts`) update progress locally and enqueue hot operations through `useSyncOperations`, so spaced-repetition ratings stay in the Dexie queue.
 - **State management**: Redux Toolkit store defined in `redux/store.ts` with slices for user, deck, card, template, field, field preference, study, study session, user card progress, user preferences, and sync state. Serializable checks are disabled because Dexie objects are non-serializable.
 - **Internationalization**: next-intl. Messages live under `messages/{locale}.json`. Root layout reads `NEXT_LOCALE` cookie to choose the bundle.
   - `AppProviders` now sets `NextIntlClientProvider` with a default time zone (configurable via `NEXT_PUBLIC_DEFAULT_TIME_ZONE`, defaulting to `UTC`) to avoid environment fallbacks during hydration.
@@ -33,7 +34,9 @@ This guide gives downstream AI agents the context they need to work effectively 
 | `components/home/HomePage.tsx` | Client switcher that shows `HomeHero` for guests and `DeckExplorer` when authenticated. |
 | `components/home/HomeHero.tsx` | Client component using translations + shadcn button primitives. |
 | `components/deck/DeckExplorer.tsx` | Offline-friendly deck browser that lists cards and links into `/deck?deckId=...&cardIndex=...`. |
-| `components/deck/DeckStudyClient.tsx` | Per-card viewer that maps template field preferences to card values and toggles question/answer faces. |
+| `components/deck/DeckStudyClient.tsx` | Study surface that renders cards through `CardRenderer`, wires template-aware quiz controls, and advances FSRS ratings via the sync queue. |
+| `components/study/QuizComponent.tsx` | Template switchboard that selects quiz UIs (basic, choice, cloze, spelling, reading) and funnels completions back to the study flow. |
+| `components/study/quiz-types/` | Individual quiz presenters; `BasicQuiz` applies FSRS scheduling updates and queues hot sync operations, while others provide progressive placeholders. |
 | `components/card-renderer/CardRenderer.tsx` | Client component that injects CSS and replaces template placeholders with card field values. |
 | `components/dialog/` | Shared dialog components (auth, deck/card/template creation) driven by Zustand stores in `hooks/dialog/`. |
 | `redux/` | Store, slices, and hooks for RTK. `studySlice` consumes the shared sync manager; `syncSlice` tracks queue/cursor state while feature-specific slices (cards, decks, templates, fields, field preferences, study session, user card progress, user preferences) expose normalized selectors. |

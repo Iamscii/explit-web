@@ -21,7 +21,7 @@ const initialState: StudyState = {
   status: "idle",
 }
 
-type StudySyncPayload = Pick<SyncSnapshot, "cards" | "progresses">
+type StudySyncPayload = Pick<SyncSnapshot, "cards" | "progresses" | "changedCollections">
 
 const handleSyncPending: CaseReducer<StudyState, AnyAction> = (state) => {
   state.status = "syncing"
@@ -34,8 +34,12 @@ const handleSyncFulfilled: CaseReducer<
 > = (state, action) => {
   const snapshot = action.payload
   state.status = "idle"
-  state.cards = snapshot.cards
-  state.progresses = snapshot.progresses
+  if (snapshot.changedCollections.includes("cards")) {
+    state.cards = snapshot.cards
+  }
+  if (snapshot.changedCollections.includes("progresses")) {
+    state.progresses = snapshot.progresses
+  }
 }
 
 const handleSyncRejected: CaseReducer<

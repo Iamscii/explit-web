@@ -56,9 +56,12 @@ const deckSlice = createSlice({
       })
       .addCase(syncData.fulfilled, (state, action) => {
         const snapshot = action.payload as SyncSnapshot
-        state.items = snapshot.decks
         state.status = "succeeded"
         state.error = undefined
+        if (!snapshot.changedCollections.includes("decks")) {
+          return
+        }
+        state.items = snapshot.decks
       })
       .addCase(syncData.rejected, (state, action) => {
         state.status = "failed"

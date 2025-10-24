@@ -85,6 +85,14 @@ const templateSlice = createSlice({
       })
       .addCase(syncData.fulfilled, (state, action) => {
         const snapshot = action.payload as SyncSnapshot
+        state.status = "ready"
+        state.error = undefined
+        if (
+          !snapshot.changedCollections.includes("templates") &&
+          !snapshot.changedCollections.includes("styles")
+        ) {
+          return
+        }
         const styles = snapshot.styles ?? []
 
         const styleMap = styles.reduce<Record<string, SafeStyle>>((acc, style) => {
@@ -102,8 +110,6 @@ const templateSlice = createSlice({
         )
         state.stylesByTemplateId = styleMap
         state.allIds = snapshot.templates.map((template) => template.id)
-        state.status = "ready"
-        state.error = undefined
       })
       .addCase(syncData.rejected, (state, action) => {
         state.status = "failed"

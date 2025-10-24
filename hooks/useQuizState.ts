@@ -9,7 +9,7 @@ export const useQuizState = (onComplete: (rating: CardRating) => void) => {
   const [showAnswer, setShowAnswer] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const optionsRef = useRef<HTMLButtonElement[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (hoveredOption !== null && containerRef.current) {

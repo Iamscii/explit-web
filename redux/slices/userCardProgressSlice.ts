@@ -111,6 +111,11 @@ const userCardProgressSlice = createSlice({
       })
       .addCase(syncData.fulfilled, (state, action) => {
         const snapshot = action.payload as SyncSnapshot
+        state.status = "ready"
+        state.error = undefined
+        if (!snapshot.changedCollections.includes("progresses")) {
+          return
+        }
         const progresses = snapshot.progresses
         state.byId = progresses.reduce<Record<string, SafeUserCardProgress>>(
           (acc, progress) => {
@@ -127,8 +132,6 @@ const userCardProgressSlice = createSlice({
 
         state.idsByDeck = {}
         progresses.forEach((progress) => attachToDeck(state, progress))
-        state.status = "ready"
-        state.error = undefined
       })
       .addCase(syncData.rejected, (state, action) => {
         state.status = "failed"

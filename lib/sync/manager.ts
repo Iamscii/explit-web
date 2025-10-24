@@ -56,6 +56,7 @@ export interface SyncSnapshot {
   cursors: SyncCursorMap
   appliedOperationIds: string[]
   timestamp: string
+  changedCollections: Array<keyof DexieCollections>
 }
 
 const DEVICE_METADATA_KEY = "device-id"
@@ -238,6 +239,22 @@ export const performSync = async (
     return template
   })
 
+  const changedCollections = new Set<keyof DexieCollections>()
+  const trackChange = <K extends keyof DexieCollections>(key: K, hasChange: boolean) => {
+    if (hasChange) {
+      changedCollections.add(key)
+    }
+  }
+
+  trackChange("cards", Boolean(safeCards.length))
+  trackChange("decks", Boolean(safeDecks.length))
+  trackChange("templates", Boolean(templatesWithStyles.length))
+  trackChange("fields", Boolean(safeFields.length))
+  trackChange("fieldPreferences", Boolean(safeFieldPreferences.length))
+  trackChange("styles", Boolean(safeStyles.length))
+  trackChange("progresses", Boolean(safeProgresses.length))
+  trackChange("userPreferences", Boolean(safeUserPreferences.length))
+
   await dexieDb.transaction(
     "rw",
     [
@@ -323,6 +340,7 @@ export const performSync = async (
     cursors: response.cursors,
     appliedOperationIds: response.appliedOperationIds,
     timestamp: response.timestamp,
+    changedCollections: Array.from(changedCollections),
   }
 }
 
